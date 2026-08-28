@@ -1057,3 +1057,638 @@ footer {
         min-height: 145px;
     }
 }
+/* =========================================
+   PRODUCT MANAGEMENT
+   ========================================= */
+
+.product-page {
+    position: relative;
+
+    min-height: calc(100vh - 180px);
+
+    padding: 30px 10px 60px;
+}
+
+
+/* =========================================
+   PRODUCT PAGE HEADER
+   ========================================= */
+
+.product-page-header {
+    max-width: 1100px;
+
+    margin: 0 auto 35px;
+
+    display: flex;
+
+    align-items: flex-end;
+
+    justify-content: space-between;
+
+    gap: 25px;
+}
+
+
+.page-label {
+    color: var(--purple);
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    letter-spacing: 2.5px;
+
+    margin-bottom: 8px;
+}
+
+
+.product-page-header h1 {
+    color: var(--deep-purple);
+
+    font-family: Georgia, "Times New Roman", serif;
+
+    font-size: 34px;
+
+    font-weight: 500;
+
+    margin-bottom: 7px;
+}
+
+
+.page-description {
+    color: var(--gray-text);
+
+    font-size: 14px;
+}
+
+
+/* =========================================
+   ADD PRODUCT BUTTON
+   ========================================= */
+
+.product-add-button {
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    background: var(--deep-purple);
+
+    color: white;
+
+    padding: 12px 19px;
+
+    border-radius: 9px;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    white-space: nowrap;
+
+    box-shadow:
+        0 6px 16px rgba(70, 54, 83, 0.15);
+
+    transition: 0.25s ease;
+}
+
+
+.product-add-button:hover {
+    background: var(--purple);
+
+    color: white;
+
+    transform: translateY(-2px);
+}
+
+
+/* =========================================
+   PRODUCT TABLE
+   ========================================= */
+
+.product-table-container {
+    position: relative;
+
+    max-width: 1100px;
+
+    margin: 0 auto;
+
+    background: rgba(255, 255, 255, 0.97);
+
+    border: 1px solid var(--border);
+
+    border-radius: 17px;
+
+    overflow-x: auto;
+
+    box-shadow:
+        0 12px 35px rgba(70, 54, 83, 0.08);
+}
+
+
+.product-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    min-width: 800px;
+}
+
+
+.product-table thead {
+    background: var(--light-lavender);
+}
+
+
+.product-table th {
+    padding: 17px 20px;
+
+    color: var(--deep-purple);
+
+    font-size: 12px;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.8px;
+
+    text-align: left;
+
+    font-weight: 700;
+}
+
+
+.product-table td {
+    padding: 19px 20px;
+
+    border-top: 1px solid #ECE7EF;
+
+    color: var(--gray-text);
+
+    font-size: 14px;
+}
+
+
+.product-table td strong {
+    color: var(--deep-purple);
+
+    font-weight: 600;
+}
+
+
+.product-table tbody tr {
+    transition: 0.2s ease;
+}
+
+
+.product-table tbody tr:hover {
+    background: #FBF9FC;
+}
+
+
+/* =========================================
+   STATUS
+   ========================================= */
+
+.status-badge {
+    display: inline-block;
+
+    padding: 5px 11px;
+
+    border-radius: 20px;
+
+    font-size: 11px;
+
+    font-weight: 600;
+
+    background: var(--light-lavender);
+
+    color: var(--purple);
+}
+
+
+.status-badge.available {
+    background: #EEE8F1;
+
+    color: #5C4770;
+}
+
+
+.status-badge.out-of-stock {
+    background: #F4E9EB;
+
+    color: #9A5360;
+}
+
+.status-badge.unavailable {
+    background: #F4E9EB;
+    color: #8A5260;
+}
+
+
+.status-badge.inactive {
+    background: #ECEAEC;
+
+    color: #777078;
+}
+
+
+/* =========================================
+   PRODUCT ACTIONS
+   ========================================= */
+
+.product-actions {
+    display: flex;
+
+    gap: 8px;
+}
+
+
+.edit-button,
+.delete-button {
+    padding: 7px 11px;
+
+    border-radius: 7px;
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+    transition: 0.2s;
+}
+
+
+.edit-button {
+    background: var(--light-lavender);
+
+    color: var(--purple);
+}
+
+
+.edit-button:hover {
+    background: var(--lavender);
+
+    color: var(--deep-purple);
+}
+
+
+.delete-button {
+    background: #F6E9EB;
+
+    color: var(--danger);
+}
+
+
+.delete-button:hover {
+    background: #EFD9DD;
+
+    color: #793F49;
+}
+
+
+/* =========================================
+   EMPTY PRODUCT AREA
+   ========================================= */
+
+.empty-products {
+    text-align: center;
+
+    padding: 75px 30px;
+}
+
+
+.empty-icon {
+    width: 60px;
+
+    height: 60px;
+
+    margin: 0 auto 20px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    background: var(--light-lavender);
+
+    color: var(--purple);
+
+    border-radius: 15px;
+
+    font-size: 27px;
+}
+
+
+.empty-products h2 {
+    color: var(--deep-purple);
+
+    font-family: Georgia, "Times New Roman", serif;
+
+    font-size: 25px;
+
+    font-weight: 500;
+
+    margin-bottom: 7px;
+}
+
+
+.empty-products p {
+    color: var(--gray-text);
+
+    font-size: 14px;
+
+    margin-bottom: 23px;
+}
+
+
+/* =========================================
+   PRODUCT FORM PAGE
+   ========================================= */
+
+.product-form-page {
+    min-height: calc(100vh - 180px);
+
+    padding: 35px 15px 60px;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: flex-start;
+}
+
+
+.product-form-card {
+    width: 100%;
+
+    max-width: 650px;
+
+    background: rgba(255, 255, 255, 0.98);
+
+    border: 1px solid var(--border);
+
+    border-radius: 18px;
+
+    padding: 40px;
+
+    box-shadow:
+        0 15px 40px rgba(70, 54, 83, 0.09);
+}
+
+
+.form-heading {
+    text-align: center;
+
+    margin-bottom: 30px;
+}
+
+
+.form-heading h1 {
+    color: var(--deep-purple);
+
+    font-family: Georgia, "Times New Roman", serif;
+
+    font-size: 31px;
+
+    font-weight: 500;
+
+    margin-bottom: 7px;
+}
+
+
+.form-heading p:last-child {
+    color: var(--gray-text);
+
+    font-size: 13px;
+}
+
+
+/* =========================================
+   FORM
+   ========================================= */
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+
+.form-group label {
+    display: block;
+
+    margin: 0 0 7px;
+
+    color: var(--deep-purple);
+
+    font-size: 13px;
+
+    font-weight: 600;
+}
+
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+
+    padding: 12px 14px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: #FDFCFE;
+
+    color: var(--dark-text);
+
+    font-family: inherit;
+
+    font-size: 14px;
+
+    outline: none;
+
+    transition: 0.2s;
+}
+
+
+.form-group textarea {
+    resize: vertical;
+
+    min-height: 120px;
+}
+
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    background: white;
+
+    border-color: var(--purple);
+
+    box-shadow:
+        0 0 0 3px rgba(112, 87, 127, 0.10);
+}
+
+
+/* =========================================
+   TWO COLUMN FORM
+   ========================================= */
+
+.form-row {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 18px;
+}
+
+
+/* =========================================
+   FORM ERROR
+   ========================================= */
+
+.form-error {
+    background: #F6E9EB;
+
+    border: 1px solid #E6CDD1;
+
+    color: var(--danger);
+
+    padding: 11px 14px;
+
+    border-radius: 8px;
+
+    font-size: 13px;
+
+    margin-bottom: 22px;
+
+    text-align: center;
+}
+
+
+/* =========================================
+   FORM BUTTONS
+   ========================================= */
+
+.form-buttons {
+    display: flex;
+
+    gap: 12px;
+
+    margin-top: 28px;
+}
+
+
+.primary-form-button {
+    flex: 1;
+
+    border: none;
+
+    border-radius: 9px;
+
+    padding: 13px;
+
+    background: var(--deep-purple);
+
+    color: white;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: 0.25s;
+}
+
+
+.primary-form-button:hover {
+    background: var(--purple);
+
+    transform: translateY(-1px);
+}
+
+
+.cancel-button {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 13px 22px;
+
+    border-radius: 9px;
+
+    background: var(--light-lavender);
+
+    color: var(--purple);
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    transition: 0.25s;
+}
+
+
+.cancel-button:hover {
+    background: var(--lavender);
+
+    color: var(--deep-purple);
+}
+
+
+/* =========================================
+   PRODUCT RESPONSIVE
+   ========================================= */
+
+@media (max-width: 750px) {
+
+    .product-page-header {
+        align-items: flex-start;
+
+        flex-direction: column;
+    }
+
+
+    .product-page-header h1 {
+        font-size: 29px;
+    }
+
+
+    .product-add-button {
+        width: 100%;
+    }
+
+
+    .product-form-card {
+        padding: 30px 23px;
+    }
+
+
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+}
+
+
+@media (max-width: 500px) {
+
+    .product-form-card {
+        padding: 27px 18px;
+    }
+
+
+    .form-buttons {
+        flex-direction: column;
+    }
+
+
+    .cancel-button {
+        width: 100%;
+    }
+
+}
