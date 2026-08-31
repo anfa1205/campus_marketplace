@@ -1,1 +1,0 @@
-console.log("Campus Marketplace JavaScript loaded.");
