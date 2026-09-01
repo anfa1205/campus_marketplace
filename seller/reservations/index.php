@@ -1,292 +1,535 @@
-```php
 <?php
 
 require_once "../../config/database.php";
 require_once "../../includes/seller_check.php";
 
-include "../../includes/header.php";
+$sellerID = (int) $_SESSION["user_id"];
 
-$seller_id = $_SESSION["user_id"];
-
-
-/* Get reservations for this seller */
-
-$stmt = $pdo->prepare(
-    "SELECT
+$stmt = $pdo->prepare("
+    SELECT
         r.ReservationID,
         r.ReservationDate,
         r.ReservationTarget,
         r.Status,
-        r.quantity,
-        r.contactNumber,
 
         b.Name AS BuyerName,
         b.Email AS BuyerEmail,
         b.Phone AS BuyerPhone,
 
         p.ProductName,
-        p.Price
+        c.quantity AS Quantity,
 
-     FROM reservation r
+        sa.SellingDate,
+        sa.SellingTime,
+        sa.CampusLocation
 
-     INNER JOIN BUYER b
+    FROM reservation r
+
+    INNER JOIN buyer b
         ON r.buyerID = b.BuyerID
 
-     INNER JOIN PRODUCT p
-        ON r.productID = p.ProductID
+    INNER JOIN contains c
+        ON r.ReservationID = c.reservationID
 
-     WHERE r.sellerID = ?
+    INNER JOIN product p
+        ON c.productID = p.ProductID
 
-     ORDER BY r.ReservationDate DESC"
-);
+    INNER JOIN sales_announcement sa
+        ON r.announcementID = sa.AnnouncementId
+
+    WHERE r.sellerID = :sellerID
+
+    ORDER BY r.ReservationID DESC
+");
 
 $stmt->execute([
-    $seller_id
+    ":sellerID" => $sellerID
 ]);
 
 $reservations = $stmt->fetchAll();
 
+include "../../includes/header.php";
+
 ?>
 
+<div class="seller-dashboard">
 
-<div class="card">
+    <div class="academic-decoration decoration-top-left">
+        <span>✦</span>
+        <span>⌁</span>
+    </div>
 
-    <h1>
-        Reservation & Pickup Management
-    </h1>
+    <div class="academic-decoration decoration-bottom-right">
+        <span>✦</span>
+        <span>⌁</span>
+    </div>
 
 
-    <?php if (count($reservations) === 0): ?>
+    <div class="dashboard-intro">
 
-        <p>
-            No reservations found.
+        <p class="dashboard-label">
+            RESERVATION MANAGEMENT
         </p>
 
+        <h1>Reservations</h1>
 
-    <?php else: ?>
+        <div class="title-line"></div>
 
-        <div class="table-container">
+        <p class="dashboard-description">
+            View buyer reservations and manage pickup.
+        </p>
 
-            <table>
-
-                <thead>
-
-                    <tr>
-
-                        <th>
-                            Reservation ID
-                        </th>
-
-                        <th>
-                            Buyer
-                        </th>
-
-                        <th>
-                            Product
-                        </th>
-
-                        <th>
-                            Quantity
-                        </th>
-
-                        <th>
-                            Contact
-                        </th>
-
-                        <th>
-                            Reservation Date
-                        </th>
-
-                        <th>
-                            Status
-                        </th>
-
-                        <th>
-                            Action
-                        </th>
-
-                    </tr>
-
-                </thead>
+    </div>
 
 
-                <tbody>
+    <?php if (isset($_GET["success"])): ?>
 
-                <?php foreach (
-                    $reservations
-                    as $reservation
-                ): ?>
-
-                    <tr>
-
-                        <td>
-                            #<?= (int)
-                                $reservation[
-                                    "ReservationID"
-                                ] ?>
-                        </td>
-
-
-                        <td>
-
-                            <?= htmlspecialchars(
-                                $reservation[
-                                    "BuyerName"
-                                ]
-                            ) ?>
-
-                            <br>
-
-                            <small>
-                                <?= htmlspecialchars(
-                                    $reservation[
-                                        "BuyerEmail"
-                                    ]
-                                ) ?>
-                            </small>
-
-                        </td>
-
-
-                        <td>
-                            <?= htmlspecialchars(
-                                $reservation[
-                                    "ProductName"
-                                ]
-                            ) ?>
-                        </td>
-
-
-                        <td>
-                            <?= (int)
-                                $reservation[
-                                    "quantity"
-                                ] ?>
-                        </td>
-
-
-                        <td>
-                            <?= htmlspecialchars(
-                                $reservation[
-                                    "contactNumber"
-                                ]
-                            ) ?>
-                        </td>
-
-
-                        <td>
-                            <?= htmlspecialchars(
-                                $reservation[
-                                    "ReservationDate"
-                                ]
-                            ) ?>
-                        </td>
-
-
-                        <td>
-                            <?= htmlspecialchars(
-                                $reservation[
-                                    "Status"
-                                ]
-                            ) ?>
-                        </td>
-
-
-                        <td>
-
-
-                            <?php if (
-                                $reservation[
-                                    "Status"
-                                ] === "Pending"
-                            ): ?>
-
-
-                                <a
-                                    href="update_status.php?id=<?= (int) $reservation["ReservationID"] ?>&status=Accepted"
-                                    class="btn"
-                                >
-                                    Accept
-                                </a>
-
-
-                                <a
-                                    href="update_status.php?id=<?= (int) $reservation["ReservationID"] ?>&status=Rejected"
-                                    class="btn"
-                                >
-                                    Reject
-                                </a>
-
-
-                            <?php elseif (
-                                $reservation[
-                                    "Status"
-                                ] === "Accepted"
-                            ): ?>
-
-
-                                <a
-                                    href="update_status.php?id=<?= (int) $reservation["ReservationID"] ?>&status=Ready%20for%20Pickup"
-                                    class="btn"
-                                >
-                                    Ready for Pickup
-                                </a>
-
-
-                            <?php elseif (
-                                $reservation[
-                                    "Status"
-                                ] === "Ready for Pickup"
-                            ): ?>
-
-
-                                <a
-                                    href="update_status.php?id=<?= (int) $reservation["ReservationID"] ?>&status=Completed"
-                                    class="btn"
-                                >
-                                    Completed
-                                </a>
-
-
-                            <?php else: ?>
-
-                                —
-
-                            <?php endif; ?>
-
-
-                        </td>
-
-                    </tr>
-
-                <?php endforeach; ?>
-
-                </tbody>
-
-            </table>
-
+        <div class="reservation-message success-message">
+            <?= htmlspecialchars($_GET["success"]) ?>
         </div>
 
     <?php endif; ?>
 
 
-    <br>
+    <?php if (isset($_GET["error"])): ?>
+
+        <div class="reservation-message error-message">
+            <?= htmlspecialchars($_GET["error"]) ?>
+        </div>
+
+    <?php endif; ?>
 
 
-    <a
-        href="../dashboard.php"
-        class="btn"
-    >
-        Back to Dashboard
-    </a>
+    <?php if (empty($reservations)): ?>
+
+        <div class="dashboard-card empty-card">
+
+            <div class="card-icon">📋</div>
+
+            <h3>No Reservations Yet</h3>
+
+            <p>
+                Reservations made by buyers will appear here.
+            </p>
+
+        </div>
+
+    <?php else: ?>
+
+
+        <div class="reservation-list">
+
+            <?php foreach ($reservations as $reservation): ?>
+
+                <div class="reservation-card">
+
+
+                    <!-- RESERVATION HEADER -->
+
+                    <div class="reservation-header">
+
+                        <div>
+
+                            <p class="dashboard-label">
+                                RESERVATION #
+                                <?= (int) $reservation["ReservationID"] ?>
+                            </p>
+
+                            <h2>
+                                <?= htmlspecialchars(
+                                    $reservation["ProductName"]
+                                ) ?>
+                            </h2>
+
+                        </div>
+
+
+                        <span class="status-badge">
+
+                            <?= htmlspecialchars(
+                                $reservation["Status"]
+                            ) ?>
+
+                        </span>
+
+                    </div>
+
+
+                    <!-- BUYER DETAILS -->
+
+                    <div class="reservation-details">
+
+                        <div class="detail-box">
+
+                            <strong>Buyer</strong>
+
+                            <p>
+                                <?= htmlspecialchars(
+                                    $reservation["BuyerName"]
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="detail-box">
+
+                            <strong>Email</strong>
+
+                            <p>
+                                <?= htmlspecialchars(
+                                    $reservation["BuyerEmail"]
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="detail-box">
+
+                            <strong>Phone</strong>
+
+                            <p>
+                                <?= htmlspecialchars(
+                                    $reservation["BuyerPhone"]
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="detail-box">
+
+                            <strong>Quantity</strong>
+
+                            <p>
+                                <?= (int) $reservation["Quantity"] ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="detail-box">
+
+                            <strong>Reserved On</strong>
+
+                            <p>
+                                <?= htmlspecialchars(
+                                    $reservation["ReservationDate"]
+                                ) ?>
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- PICKUP INFORMATION -->
+
+                    <div class="pickup-section">
+
+                        <h3>Pickup Information</h3>
+
+                        <p>
+                            <strong>Date:</strong>
+                            <?= htmlspecialchars(
+                                $reservation["SellingDate"]
+                            ) ?>
+                        </p>
+
+                        <p>
+                            <strong>Time:</strong>
+                            <?= htmlspecialchars(
+                                $reservation["SellingTime"]
+                            ) ?>
+                        </p>
+
+                        <p>
+                            <strong>Location:</strong>
+                            <?= htmlspecialchars(
+                                $reservation["CampusLocation"]
+                            ) ?>
+                        </p>
+
+                    </div>
+
+
+                    <!-- ACTIONS -->
+
+                    <div class="reservation-actions">
+
+
+                        <?php if (
+                            $reservation["Status"] === "Pending"
+                        ): ?>
+
+                            <!-- ACCEPT -->
+
+                            <form
+                                method="POST"
+                                action="update_status.php"
+                            >
+
+                                <input
+                                    type="hidden"
+                                    name="reservation_id"
+                                    value="<?= (int) $reservation["ReservationID"] ?>"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="status"
+                                    value="Accepted"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="btn"
+                                >
+                                    Accept
+                                </button>
+
+                            </form>
+
+
+                            <!-- REJECT -->
+
+                            <form
+                                method="POST"
+                                action="update_status.php"
+                            >
+
+                                <input
+                                    type="hidden"
+                                    name="reservation_id"
+                                    value="<?= (int) $reservation["ReservationID"] ?>"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="status"
+                                    value="Rejected"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-danger"
+                                >
+                                    Reject
+                                </button>
+
+                            </form>
+
+
+                        <?php elseif (
+                            $reservation["Status"] === "Accepted"
+                        ): ?>
+
+                            <!-- COMPLETE -->
+
+                            <form
+                                method="POST"
+                                action="update_status.php"
+                            >
+
+                                <input
+                                    type="hidden"
+                                    name="reservation_id"
+                                    value="<?= (int) $reservation["ReservationID"] ?>"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="status"
+                                    value="Completed"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="btn"
+                                >
+                                    Mark Completed
+                                </button>
+
+                            </form>
+
+                            <p class="accepted-message">
+                                ✓ Reservation accepted.
+                                Buyer can collect the product at the
+                                announced date, time and location.
+                            </p>
+
+
+                        <?php elseif (
+                            $reservation["Status"] === "Completed"
+                        ): ?>
+
+                            <p class="completed-message">
+                                ✓ Reservation completed.
+                                Product has been collected.
+                            </p>
+
+
+                        <?php elseif (
+                            $reservation["Status"] === "Rejected"
+                        ): ?>
+
+                            <p class="rejected-message">
+                                ✕ Reservation rejected.
+                            </p>
+
+                        <?php endif; ?>
+
+
+                    </div>
+
+                </div>
+
+            <?php endforeach; ?>
+
+        </div>
+
+    <?php endif; ?>
 
 </div>
 
 
-<?php
+<style>
 
-include "../../includes/footer.php";
+.reservation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
 
-?>
-```
-+
+.reservation-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: 0 8px 25px rgba(70, 54, 83, 0.08);
+}
+
+.reservation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.reservation-header h2 {
+    color: var(--deep-purple);
+    margin: 8px 0 0;
+}
+
+.reservation-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.detail-box {
+    background: var(--light-lavender);
+    padding: 15px;
+    border-radius: 12px;
+}
+
+.detail-box strong {
+    display: block;
+    color: var(--purple);
+    margin-bottom: 5px;
+}
+
+.detail-box p {
+    margin: 0;
+    color: var(--dark-text);
+}
+
+.pickup-section {
+    margin-top: 22px;
+    padding: 20px;
+    background: var(--cream);
+    border-left: 4px solid var(--gold);
+    border-radius: 10px;
+}
+
+.pickup-section h3 {
+    color: var(--deep-purple);
+    margin-top: 0;
+}
+
+.pickup-section p {
+    margin: 8px 0;
+    color: var(--dark-text);
+}
+
+.reservation-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.reservation-actions form {
+    margin: 0;
+}
+
+.btn-danger {
+    background: var(--danger) !important;
+}
+
+.accepted-message {
+    color: var(--purple);
+    font-weight: 600;
+    margin: 0;
+}
+
+.completed-message {
+    color: #356b43;
+    font-weight: 600;
+}
+
+.rejected-message {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.reservation-message {
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.success-message {
+    background: #e9f5ec;
+    color: #356b43;
+}
+
+.error-message {
+    background: #f8e9eb;
+    color: var(--danger);
+}
+
+.empty-card {
+    text-align: center;
+    padding: 50px;
+}
+
+@media (max-width: 700px) {
+
+    .reservation-details {
+        grid-template-columns: 1fr;
+    }
+
+    .reservation-header {
+        flex-direction: column;
+    }
+
+}
+
+</style>
+
+
+<?php include "../../includes/footer.php"; ?>

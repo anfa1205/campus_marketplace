@@ -1,200 +1,251 @@
-```php
 <?php
 
 require_once "../../config/database.php";
 require_once "../../includes/seller_check.php";
 
-$seller_id = $_SESSION["user_id"];
+if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    header("Location: index.php");
+    exit;
+}
 
-$reservation_id =
-    isset($_GET["id"])
-        ? (int) $_GET["id"]
-        : 0;
+$sellerID = (int) $_SESSION["user_id"];
 
-$status =
-    trim($_GET["status"] ?? "");
+$reservationID = isset($_POST["reservation_id"])
+    ? (int) $_POST["reservation_id"]
+    : 0;
+
+$newStatus = $_POST["status"] ?? "";
 
 
-/* Allowed statuses */
+/*
+|--------------------------------------------------------------------------
+| ONLY THESE STATUSES ARE ALLOWED
+|--------------------------------------------------------------------------
+*/
 
-$allowed_statuses = [
+$allowedStatuses = [
     "Accepted",
     "Rejected",
-    "Ready for Pickup",
     "Completed"
 ];
 
-
 if (
-    $reservation_id > 0 &&
-    in_array($status, $allowed_statuses, true)
+    $reservationID <= 0 ||
+    !in_array($newStatus, $allowedStatuses, true)
 ) {
 
-    /*
-     * Get the reservation and make sure
-     * it belongs to the logged-in seller.
-     */
-
-    $stmt = $pdo->prepare(
-        "SELECT
-            ReservationID,
-            Status,
-            quantity,
-            productID
-         FROM reservation
-         WHERE ReservationID = ?
-         AND sellerID = ?"
+    header(
+        "Location: index.php?error=" .
+        urlencode("Invalid reservation action.")
     );
 
+    exit;
+}
+
+
+try {
+
+    $pdo->beginTransaction();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | GET RESERVATION
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        SELECT
+            ReservationID,
+            Status,
+            sellerID
+        FROM reservation
+        WHERE ReservationID = :reservationID
+          AND sellerID = :sellerID
+        FOR UPDATE
+    ");
+
     $stmt->execute([
-        $reservation_id,
-        $seller_id
+        ":reservationID" => $reservationID,
+        ":sellerID" => $sellerID
     ]);
 
     $reservation = $stmt->fetch();
 
 
-    if ($reservation) {
+    if (!$reservation) {
 
-        $current_status =
-            $reservation["Status"];
-
-        $valid_transition = false;
-
-
-        /* Pending → Accepted */
-
-        if (
-            $current_status === "Pending" &&
-            $status === "Accepted"
-        ) {
-
-            $valid_transition = true;
-
-        }
-
-
-        /* Pending → Rejected */
-
-        elseif (
-            $current_status === "Pending" &&
-            $status === "Rejected"
-        ) {
-
-            $valid_transition = true;
-
-        }
-
-
-        /* Accepted → Ready for Pickup */
-
-        elseif (
-            $current_status === "Accepted" &&
-            $status === "Ready for Pickup"
-        ) {
-
-            $valid_transition = true;
-
-        }
-
-
-        /* Ready for Pickup → Completed */
-
-        elseif (
-            $current_status === "Ready for Pickup" &&
-            $status === "Completed"
-        ) {
-
-            $valid_transition = true;
-
-        }
-
-
-        /*
-         * Update the reservation.
-         */
-
-        if ($valid_transition) {
-
-            /*
-             * When a reservation is accepted,
-             * reduce the product stock.
-             */
-
-            if (
-                $current_status === "Pending" &&
-                $status === "Accepted"
-            ) {
-
-                $stock_stmt = $pdo->prepare(
-                    "UPDATE PRODUCT
-                     SET Stock = Stock - ?
-                     WHERE ProductID = ?
-                     AND Stock >= ?"
-                );
-
-                $stock_stmt->execute([
-                    $reservation["quantity"],
-                    $reservation["productID"],
-                    $reservation["quantity"]
-                ]);
-
-
-                /*
-                 * Only accept the reservation
-                 * if enough stock exists.
-                 */
-
-                if (
-                    $stock_stmt->rowCount() === 1
-                ) {
-
-                    $update_stmt = $pdo->prepare(
-                        "UPDATE reservation
-                         SET Status = ?
-                         WHERE ReservationID = ?
-                         AND sellerID = ?"
-                    );
-
-                    $update_stmt->execute([
-                        $status,
-                        $reservation_id,
-                        $seller_id
-                    ]);
-
-                }
-
-            }
-
-            else {
-
-                $update_stmt = $pdo->prepare(
-                    "UPDATE reservation
-                     SET Status = ?
-                     WHERE ReservationID = ?
-                     AND sellerID = ?"
-                );
-
-                $update_stmt->execute([
-                    $status,
-                    $reservation_id,
-                    $seller_id
-                ]);
-
-            }
-
-        }
-
+        throw new Exception(
+            "Reservation not found."
+        );
     }
 
+
+    $currentStatus = $reservation["Status"];
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | VALID FLOW
+    |
+    | Pending  → Accepted
+    | Pending  → Rejected
+    |
+    | Accepted → Completed
+    |--------------------------------------------------------------------------
+    */
+
+    if ($currentStatus === "Pending") {
+
+        if (
+            $newStatus !== "Accepted" &&
+            $newStatus !== "Rejected"
+        ) {
+
+            throw new Exception(
+                "Invalid reservation status change."
+            );
+        }
+
+    } elseif ($currentStatus === "Accepted") {
+
+        if ($newStatus !== "Completed") {
+
+            throw new Exception(
+                "Invalid reservation status change."
+            );
+        }
+
+    } else {
+
+        throw new Exception(
+            "This reservation can no longer be changed."
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | REDUCE PRODUCT STOCK ONLY WHEN COMPLETED
+    |--------------------------------------------------------------------------
+    */
+
+    if ($newStatus === "Completed") {
+
+        $stmt = $pdo->prepare("
+            SELECT
+                c.productID,
+                c.quantity,
+                p.Stock,
+                p.ProductName
+
+            FROM contains c
+
+            INNER JOIN product p
+                ON c.productID = p.ProductID
+
+            WHERE c.reservationID = :reservationID
+
+            FOR UPDATE
+        ");
+
+        $stmt->execute([
+            ":reservationID" => $reservationID
+        ]);
+
+        $items = $stmt->fetchAll();
+
+
+        if (empty($items)) {
+
+            throw new Exception(
+                "No product was found for this reservation."
+            );
+        }
+
+
+        foreach ($items as $item) {
+
+            $stock = (int) $item["Stock"];
+            $quantity = (int) $item["quantity"];
+
+
+            if ($stock < $quantity) {
+
+                throw new Exception(
+                    "Not enough stock for " .
+                    $item["ProductName"] .
+                    "."
+                );
+            }
+
+
+            $stmt = $pdo->prepare("
+                UPDATE product
+
+                SET Stock = Stock - :quantity
+
+                WHERE ProductID = :productID
+            ");
+
+            $stmt->execute([
+                ":quantity" => $quantity,
+                ":productID" => $item["productID"]
+            ]);
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE RESERVATION STATUS
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        UPDATE reservation
+
+        SET Status = :status
+
+        WHERE ReservationID = :reservationID
+          AND sellerID = :sellerID
+    ");
+
+    $stmt->execute([
+        ":status" => $newStatus,
+        ":reservationID" => $reservationID,
+        ":sellerID" => $sellerID
+    ]);
+
+
+    $pdo->commit();
+
+
+    header(
+        "Location: index.php?success=" .
+        urlencode(
+            "Reservation #" .
+            $reservationID .
+            " updated successfully."
+        )
+    );
+
+    exit;
+
+
+} catch (Exception $e) {
+
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+
+    header(
+        "Location: index.php?error=" .
+        urlencode($e->getMessage())
+    );
+
+    exit;
 }
 
-
-header(
-    "Location: index.php"
-);
-
-exit;
-
 ?>
-```

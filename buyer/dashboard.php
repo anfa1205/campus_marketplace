@@ -78,6 +78,29 @@ $buyerName =
 
         </a>
 
+        <a
+    href="launches/index.php"
+    class="dashboard-card"
+>
+
+    <div class="card-icon">
+        ✦
+    </div>
+
+    <h3>
+        Product Launches
+    </h3>
+
+    <p>
+        Discover upcoming products and reserve them before launch.
+    </p>
+
+    <span class="card-arrow">
+        →
+    </span>
+
+</a>
+
 
         <!-- Sales Announcements -->
 
