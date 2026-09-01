@@ -1,3 +1,4 @@
+```php
 <?php
 
 require_once "../config/database.php";
@@ -30,14 +31,20 @@ $seller =
 <div class="seller-dashboard">
 
     <!-- Decorative academic elements -->
+
     <div class="academic-decoration decoration-top-left">
+
         <span>✦</span>
         <span>⌁</span>
+
     </div>
 
+
     <div class="academic-decoration decoration-bottom-right">
+
         <span>✦</span>
         <span>⌁</span>
+
     </div>
 
 
@@ -49,15 +56,20 @@ $seller =
             SELLER DASHBOARD
         </p>
 
+
         <h1>
             Welcome back
         </h1>
 
+
         <h2>
+
             <?= htmlspecialchars(
                 $seller["bussinessName"]
             ) ?>
+
         </h2>
+
 
         <div class="title-line"></div>
 
@@ -113,7 +125,7 @@ $seller =
         </a>
 
 
-        <!-- Reservations -->
+        <!-- Reservation & Pickup Management -->
 
         <a
             href="reservations/index.php"
@@ -125,7 +137,7 @@ $seller =
             </div>
 
             <h3>
-                Reservations
+                Reservation & Pickup Management
             </h3>
 
             <span class="card-arrow">
@@ -255,3 +267,4 @@ $seller =
 include "../includes/footer.php";
 
 ?>
+```
