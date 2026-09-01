@@ -1,4 +1,3 @@
-```php
 <?php
 
 require_once "../../config/database.php";
@@ -6,9 +5,13 @@ require_once "../../includes/seller_check.php";
 
 include "../../includes/header.php";
 
-$seller_id = $_SESSION["user_id"];
+$seller_id =
+    $_SESSION["user_id"];
 
-$announcement_id = $_GET["id"] ?? 0;
+$announcement_id =
+    (int) ($_GET["id"] ?? 0);
+
+$error = "";
 
 
 /*
@@ -27,57 +30,83 @@ $stmt->execute([
     $seller_id
 ]);
 
-$announcement = $stmt->fetch();
+$announcement =
+    $stmt->fetch();
 
 
 if (!$announcement) {
 
-    echo "<div class='card'>";
-    echo "<h2>Announcement not found.</h2>";
-    echo "</div>";
+    echo "
+        <div class='card'>
+
+            <h2>
+                Announcement Not Found
+            </h2>
+
+            <p>
+                The announcement does not exist.
+            </p>
+
+        </div>
+    ";
 
     include "../../includes/footer.php";
+
     exit;
 }
 
 
 /*
-    Get seller products
+    Get seller's products
 */
 
 $product_stmt = $pdo->prepare(
-    "SELECT ProductID, ProductName, Stock, Price
+    "SELECT
+        ProductID,
+        ProductName,
+        Price,
+        Stock,
+        Status
      FROM product
-     WHERE SellerID = ?
-     ORDER BY ProductName"
+     WHERE SellerId = ?
+     ORDER BY ProductName ASC"
 );
 
-$product_stmt->execute([$seller_id]);
+$product_stmt->execute([
+    $seller_id
+]);
 
-$products = $product_stmt->fetchAll();
+$products =
+    $product_stmt->fetchAll();
 
 
 /*
-    Get included products and quantities
+    Get currently included products
 */
 
-$included_stmt = $pdo->prepare(
-    "SELECT productID, quantity
+$include_stmt = $pdo->prepare(
+    "SELECT
+        productID,
+        quantity
      FROM includes
      WHERE announcementID = ?"
 );
 
-$included_stmt->execute([
+$include_stmt->execute([
     $announcement_id
 ]);
 
-$included_data = [];
+$current_products =
+    $include_stmt->fetchAll();
 
-while ($row = $included_stmt->fetch()) {
 
-    $included_data[
-        $row["productID"]
-    ] = $row["quantity"];
+$current_quantities = [];
+
+foreach ($current_products as $item) {
+
+    $current_quantities[
+        $item["productID"]
+    ] = $item["quantity"];
 }
 
 
@@ -85,19 +114,16 @@ while ($row = $included_stmt->fetch()) {
     Update announcement
 */
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $selling_date =
-        $_POST["selling_date"];
+        trim($_POST["selling_date"] ?? "");
 
     $selling_time =
-        $_POST["selling_time"];
+        trim($_POST["selling_time"] ?? "");
 
     $campus_location =
-        trim($_POST["campus_location"]);
-
-    $available_quantity =
-        (int) $_POST["available_quantity"];
+        trim($_POST["campus_location"] ?? "");
 
     $selected_products =
         $_POST["products"] ?? [];
@@ -106,16 +132,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $_POST["quantity"] ?? [];
 
 
+    /*
+        Basic validation
+    */
+
     if (
         empty($selling_date) ||
         empty($selling_time) ||
         empty($campus_location) ||
-        $available_quantity <= 0 ||
         count($selected_products) == 0
     ) {
 
         $error =
-            "Please fill in all fields and select at least one product.";
+            "Please fill in all required fields and select at least one product.";
 
     } else {
 
@@ -125,23 +154,123 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
             /*
+                Validate selected products
+            */
+
+            $validated_products = [];
+
+
+            foreach ($selected_products as $product_id) {
+
+                $product_id =
+                    (int) $product_id;
+
+                $quantity =
+                    (int) (
+                        $product_quantities[$product_id]
+                        ?? 0
+                    );
+
+
+                /*
+                    Quantity must be greater than 0
+                */
+
+                if ($quantity <= 0) {
+
+                    throw new Exception(
+                        "Please enter a valid quantity for every selected product."
+                    );
+                }
+
+
+                /*
+                    Check that the product belongs
+                    to the logged-in seller
+                */
+
+                $check_stmt = $pdo->prepare(
+                    "SELECT
+                        ProductID,
+                        ProductName,
+                        Stock
+                     FROM product
+                     WHERE ProductID = ?
+                     AND SellerId = ?"
+                );
+
+                $check_stmt->execute([
+                    $product_id,
+                    $seller_id
+                ]);
+
+                $product =
+                    $check_stmt->fetch();
+
+
+                if (!$product) {
+
+                    throw new Exception(
+                        "Invalid product selected."
+                    );
+                }
+
+
+                /*
+                    Stock 0 products cannot
+                    be added to the sale
+                */
+
+                if ((int) $product["Stock"] <= 0) {
+
+                    throw new Exception(
+                        $product["ProductName"] .
+                        " is out of stock and cannot be added to the sale."
+                    );
+                }
+
+
+                /*
+                    Quantity cannot exceed stock
+                */
+
+                if (
+                    $quantity >
+                    (int) $product["Stock"]
+                ) {
+
+                    throw new Exception(
+                        "Quantity for " .
+                        $product["ProductName"] .
+                        " cannot be greater than its stock."
+                    );
+                }
+
+
+                $validated_products[] = [
+                    "product_id" => $product_id,
+                    "quantity" => $quantity
+                ];
+            }
+
+
+            /*
                 Update announcement
             */
 
-            $stmt = $pdo->prepare(
+            $update_stmt = $pdo->prepare(
                 "UPDATE sales_announcement
-                 SET SellingDate = ?,
-                     SellingTime = ?,
-                     AvailableQuantity = ?,
-                     CampusLocation = ?
+                 SET
+                    SellingDate = ?,
+                    SellingTime = ?,
+                    CampusLocation = ?
                  WHERE AnnouncementId = ?
                  AND SellerId = ?"
             );
 
-            $stmt->execute([
+            $update_stmt->execute([
                 $selling_date,
                 $selling_time,
-                $available_quantity,
                 $campus_location,
                 $announcement_id,
                 $seller_id
@@ -149,24 +278,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
             /*
-                Delete old product records
+                Remove old products
             */
 
-            $stmt = $pdo->prepare(
+            $delete_include_stmt = $pdo->prepare(
                 "DELETE FROM includes
                  WHERE announcementID = ?"
             );
 
-            $stmt->execute([
+            $delete_include_stmt->execute([
                 $announcement_id
             ]);
 
 
             /*
-                Insert updated products
+                Add updated products
             */
 
-            $stmt = $pdo->prepare(
+            $insert_include_stmt = $pdo->prepare(
                 "INSERT INTO includes
                 (
                     announcementID,
@@ -177,24 +306,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             );
 
 
-            foreach ($selected_products as $product_id) {
+            foreach (
+                $validated_products
+                as $item
+            ) {
 
-                $quantity =
-                    (int) ($product_quantities[$product_id] ?? 0);
-
-
-                if ($quantity <= 0) {
-
-                    throw new Exception(
-                        "Invalid product quantity."
-                    );
-                }
-
-
-                $stmt->execute([
+                $insert_include_stmt->execute([
                     $announcement_id,
-                    (int) $product_id,
-                    $quantity
+                    $item["product_id"],
+                    $item["quantity"]
                 ]);
             }
 
@@ -203,17 +323,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
             header("Location: index.php");
+
             exit;
 
 
         } catch (Exception $e) {
 
             if ($pdo->inTransaction()) {
+
                 $pdo->rollBack();
             }
 
             $error =
-                "Something went wrong. Please check the quantities.";
+                $e->getMessage();
         }
     }
 }
@@ -221,215 +343,298 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 
 
-<div class="seller-dashboard">
+<div class="product-form-page">
 
-    <div class="dashboard-intro">
-
-        <p class="dashboard-label">
-            SALES ANNOUNCEMENTS
-        </p>
-
-        <h1>
-            Edit Sales Announcement
-        </h1>
-
-        <div class="title-line"></div>
-
-    </div>
+    <div class="product-form-card">
 
 
-    <?php if (isset($error)): ?>
+        <div class="form-heading">
 
-        <div class="card">
+            <p class="dashboard-label">
+                SALES ANNOUNCEMENT
+            </p>
+
+            <h1>
+                Edit Sales Announcement
+            </h1>
 
             <p>
-                <?= htmlspecialchars($error) ?>
+                Update the sale information and products.
             </p>
 
         </div>
 
-        <br>
 
-    <?php endif; ?>
+        <?php if (!empty($error)): ?>
 
+            <div class="form-error">
 
-    <div class="card">
+                <?= htmlspecialchars($error) ?>
+
+            </div>
+
+        <?php endif; ?>
+
 
         <form method="POST">
 
 
             <!-- Selling Date -->
 
-            <label>
-                Selling Date
-            </label>
+            <div class="form-group">
 
-            <br>
+                <label>
+                    Selling Date
+                </label>
 
-            <input
-                type="date"
-                name="selling_date"
-                value="<?= htmlspecialchars(
-                    $announcement["SellingDate"]
-                ) ?>"
-                required
-            >
+                <input
+                    type="date"
+                    name="selling_date"
+                    value="<?= htmlspecialchars(
+                        $_POST["selling_date"]
+                        ?? $announcement["SellingDate"]
+                    ) ?>"
+                    required
+                >
 
-            <br>
-            <br>
+            </div>
 
 
             <!-- Selling Time -->
 
-            <label>
-                Selling Time
-            </label>
+            <div class="form-group">
 
-            <br>
+                <label>
+                    Selling Time
+                </label>
 
-            <input
-                type="time"
-                name="selling_time"
-                value="<?= htmlspecialchars(
-                    $announcement["SellingTime"]
-                ) ?>"
-                required
-            >
+                <input
+                    type="time"
+                    name="selling_time"
+                    value="<?= htmlspecialchars(
+                        $_POST["selling_time"]
+                        ?? $announcement["SellingTime"]
+                    ) ?>"
+                    required
+                >
 
-            <br>
-            <br>
+            </div>
 
 
             <!-- Campus Location -->
 
-            <label>
-                Campus Location
-            </label>
+            <div class="form-group">
 
-            <br>
+                <label>
+                    Campus Location
+                </label>
 
-            <input
-                type="text"
-                name="campus_location"
-                value="<?= htmlspecialchars(
-                    $announcement["CampusLocation"]
-                ) ?>"
-                required
-            >
+                <input
+                    type="text"
+                    name="campus_location"
+                    value="<?= htmlspecialchars(
+                        $_POST["campus_location"]
+                        ?? $announcement["CampusLocation"]
+                    ) ?>"
+                    required
+                >
 
-            <br>
-            <br>
-
-
-            <!-- Available Quantity -->
-
-            <label>
-                Total Available Quantity
-            </label>
-
-            <br>
-
-            <input
-                type="number"
-                name="available_quantity"
-                min="1"
-                value="<?= htmlspecialchars(
-                    $announcement["AvailableQuantity"]
-                ) ?>"
-                required
-            >
-
-            <br>
-            <br>
+            </div>
 
 
             <!-- Products -->
 
-            <label>
-                Products Included in Sale
-            </label>
+            <div class="form-group">
 
-            <br>
-            <br>
-
-
-            <?php foreach ($products as $product): ?>
-
-                <div style="margin-bottom: 15px;">
-
-                    <label>
-
-                        <input
-                            type="checkbox"
-                            name="products[]"
-                            value="<?= $product["ProductID"] ?>"
-                            <?= array_key_exists(
-                                $product["ProductID"],
-                                $included_data
-                            ) ? "checked" : "" ?>
-                        >
-
-                        <?= htmlspecialchars(
-                            $product["ProductName"]
-                        ) ?>
-
-                        —
-                        ৳<?= htmlspecialchars(
-                            $product["Price"]
-                        ) ?>
-
-                        (Stock:
-                        <?= htmlspecialchars(
-                            $product["Stock"]
-                        ) ?>)
-
-                    </label>
+                <label>
+                    Products Included in This Sale
+                </label>
 
 
-                    <br>
+                <div class="announcement-products">
 
 
-                    <label>
-                        Quantity:
-                    </label>
+                    <?php foreach ($products as $product): ?>
 
-                    <input
-                        type="number"
-                        name="quantity[<?= $product["ProductID"] ?>]"
-                        min="1"
-                        max="<?= $product["Stock"] ?>"
-                        value="<?= htmlspecialchars(
-                            $included_data[
-                                $product["ProductID"]
-                            ] ?? 1
-                        ) ?>"
-                    >
+                        <?php
+
+                        $product_id =
+                            $product["ProductID"];
+
+                        $stock =
+                            (int) $product["Stock"];
+
+
+                        /*
+                            Check whether this product
+                            is currently included
+                        */
+
+                        $was_selected =
+                            array_key_exists(
+                                $product_id,
+                                $current_quantities
+                            );
+
+
+                        /*
+                            If form was submitted,
+                            use submitted selections
+                        */
+
+                        if (
+                            isset(
+                                $_POST["products"]
+                            )
+                        ) {
+
+                            $was_selected =
+                                in_array(
+                                    $product_id,
+                                    $_POST["products"]
+                                );
+                        }
+
+
+                        /*
+                            Stock 0 products cannot
+                            remain selected
+                        */
+
+                        if ($stock <= 0) {
+
+                            $was_selected = false;
+                        }
+
+
+                        $quantity =
+                            $_POST["quantity"][$product_id]
+                            ??
+                            $current_quantities[
+                                $product_id
+                            ]
+                            ??
+                            1;
+
+                        ?>
+
+
+                        <div class="announcement-product-row">
+
+
+                            <div class="announcement-product-info">
+
+
+                                <label class="product-check">
+
+                                    <input
+                                        type="checkbox"
+                                        name="products[]"
+                                        value="<?= $product_id ?>"
+                                        <?= $was_selected
+                                            ? "checked"
+                                            : "" ?>
+                                        <?= $stock <= 0
+                                            ? "disabled"
+                                            : "" ?>
+                                    >
+
+                                    <span>
+                                        <?= htmlspecialchars(
+                                            $product["ProductName"]
+                                        ) ?>
+                                    </span>
+
+                                </label>
+
+
+                                <small>
+
+                                    ৳<?= htmlspecialchars(
+                                        $product["Price"]
+                                    ) ?>
+
+                                    &nbsp; | &nbsp;
+
+
+                                    <?php if ($stock <= 0): ?>
+
+                                        <strong>
+                                            OUT OF STOCK
+                                        </strong>
+
+
+                                    <?php else: ?>
+
+                                        Stock:
+                                        <?= $stock ?>
+
+                                    <?php endif; ?>
+
+                                </small>
+
+
+                            </div>
+
+
+                            <div class="announcement-quantity">
+
+                                <label>
+                                    Quantity
+                                </label>
+
+                                <input
+                                    type="number"
+                                    name="quantity[<?= $product_id ?>]"
+                                    min="1"
+                                    max="<?= $stock ?>"
+                                    value="<?= htmlspecialchars(
+                                        $quantity
+                                    ) ?>"
+                                    <?= $stock <= 0
+                                        ? "disabled"
+                                        : "" ?>
+                                >
+
+                            </div>
+
+
+                        </div>
+
+
+                    <?php endforeach; ?>
+
 
                 </div>
 
-            <?php endforeach; ?>
+
+            </div>
 
 
-            <br>
+            <!-- Buttons -->
+
+            <div class="form-buttons">
+
+                <button
+                    type="submit"
+                    class="primary-form-button"
+                >
+                    Update Announcement
+                </button>
 
 
-            <button
-                type="submit"
-                class="btn"
-            >
-                Save Changes
-            </button>
+                <a
+                    href="index.php"
+                    class="cancel-button"
+                >
+                    Cancel
+                </a>
 
-
-            <a
-                href="index.php"
-                class="btn"
-            >
-                Cancel
-            </a>
+            </div>
 
 
         </form>
+
 
     </div>
 
@@ -441,4 +646,3 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 include "../../includes/footer.php";
 
 ?>
-```

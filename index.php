@@ -4,7 +4,6 @@ include "includes/header.php";
 
 ?>
 
-
 <div class="card">
 
     <h1>
@@ -19,24 +18,25 @@ include "includes/header.php";
 
     <br>
 
+    <div class="home-buttons">
 
-    <a
-        href="auth/register.php"
-        class="btn"
-    >
-        Get Started
-    </a>
+        <a
+            href="auth/register.php"
+            class="btn"
+        >
+            Get Started
+        </a>
 
+        <a
+            href="auth/login.php"
+            class="btn"
+        >
+            Login
+        </a>
 
-    <a
-        href="auth/login.php"
-        class="btn"
-    >
-        Login
-    </a>
+    </div>
 
 </div>
-
 
 <?php
 

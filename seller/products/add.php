@@ -1,3 +1,4 @@
+```php
 <?php
 
 require_once "../../config/database.php";
@@ -51,14 +52,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (
         $product_name === "" ||
         $category === "" ||
-        $description === "" ||
         $price === "" ||
         $stock === "" ||
         $status === ""
     ) {
 
         $error =
-            "Please fill in all fields.";
+            "Please fill in all required fields.";
 
     }
 
@@ -274,9 +274,8 @@ include "../../includes/header.php";
 
                 <textarea
                     name="description"
-                    placeholder="Describe your product"
+                    placeholder="Describe your product (optional)"
                     rows="5"
-                    required
                 ><?= htmlspecialchars(
                     $_POST["description"] ?? ""
                 ) ?></textarea>
@@ -428,3 +427,4 @@ include "../../includes/header.php";
 include "../../includes/footer.php";
 
 ?>
+```

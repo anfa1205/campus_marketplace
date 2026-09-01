@@ -1161,8 +1161,38 @@ footer {
 
     transform: translateY(-2px);
 }
+/* =========================================
+   HOME PAGE BUTTONS
+   ========================================= */
 
+.home-buttons {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center;
+    align-items: center;
+    gap: 12px !important;
+    width: 100%;
+}
 
+.home-buttons .btn {
+    width: auto !important;
+    height: 58px;
+    margin-top: 0 !important;
+    padding: 0 25px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 10px;
+    text-align: center;
+}
+.home-buttons .btn:first-child {
+    width: 155px !important;
+}
+.home-buttons .btn:last-child {
+    width: 100px !important;
+}
 /* =========================================
    PRODUCT TABLE
    ========================================= */
@@ -1689,6 +1719,272 @@ footer {
 
     .cancel-button {
         width: 100%;
+    }
+
+}
+/* =========================================
+   SALES ANNOUNCEMENT CREATE BUTTON
+   ========================================= */
+
+.seller-dashboard {
+    position: relative;
+}
+
+.announcement-actions {
+    position: absolute;
+    top: 25px;
+    right: 10px;
+
+    z-index: 5;
+}
+
+.announcement-actions .btn {
+    width: auto !important;
+    margin-top: 0 !important;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 12px 19px;
+
+    border-radius: 9px;
+
+    white-space: nowrap;
+}
+/* =========================================
+   SALES ANNOUNCEMENT CREATE BUTTON
+   ========================================= */
+
+.announcement-actions {
+    position: absolute;
+    top: 25px;
+    right: 10px;
+    z-index: 5;
+}
+
+.announcement-actions .btn {
+    width: auto !important;
+    margin-top: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 19px;
+    border-radius: 9px;
+    white-space: nowrap;
+}
+
+@media (max-width: 750px) {
+    .announcement-actions {
+        position: static;
+        display: flex;
+        justify-content: center;
+        margin-top: -20px;
+        margin-bottom: 30px;
+    }
+}
+
+/* =========================================
+   SALES ANNOUNCEMENT
+   ========================================= */
+
+.announcement-actions {
+    position: absolute;
+    top: 25px;
+    right: 10px;
+    z-index: 5;
+}
+
+.announcement-actions .btn {
+    width: auto !important;
+    margin-top: 0 !important;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 12px 19px;
+
+    border-radius: 9px;
+
+    white-space: nowrap;
+}
+
+
+/* Product selection area */
+
+.announcement-products {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    margin-top: 12px;
+}
+
+
+.announcement-product-row {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding: 15px;
+
+    background: #FDFCFE;
+
+    border: 1px solid var(--border);
+
+    border-radius: 10px;
+}
+
+
+.announcement-product-info {
+    flex: 1;
+}
+
+
+.product-check {
+    display: flex !important;
+
+    align-items: center;
+
+    gap: 9px;
+
+    margin: 0 !important;
+
+    color: var(--deep-purple);
+
+    font-size: 14px !important;
+
+    cursor: pointer;
+}
+
+
+.product-check input {
+    width: auto !important;
+
+    margin: 0;
+
+    accent-color: var(--purple);
+}
+
+
+.announcement-product-info small {
+    display: block;
+
+    margin-top: 5px;
+
+    margin-left: 24px;
+
+    color: var(--gray-text);
+
+    font-size: 12px;
+}
+
+
+.announcement-quantity {
+    width: 105px;
+
+    flex-shrink: 0;
+}
+
+
+.announcement-quantity label {
+    font-size: 11px !important;
+
+    margin-bottom: 5px !important;
+}
+
+
+.announcement-quantity input {
+    width: 100% !important;
+
+    padding: 9px 10px !important;
+
+    margin: 0 !important;
+}
+
+
+/* Announcement card product text */
+
+.announcement-product-display {
+    width: 100%;
+
+    padding: 8px 0;
+
+    margin: 0 !important;
+
+    background: transparent !important;
+
+    border: none !important;
+
+    color: var(--gray-text);
+
+    text-align: left !important;
+}
+
+
+.announcement-product-display strong {
+    color: var(--deep-purple);
+}
+
+
+/* Card buttons */
+
+.announcement-card-actions {
+    display: flex;
+
+    gap: 8px;
+
+    width: 100%;
+}
+
+
+.announcement-card-actions .edit-button,
+.announcement-card-actions .delete-button {
+    text-align: center;
+
+    text-decoration: none;
+
+    flex: 1;
+}
+
+
+/* Mobile */
+
+@media (max-width: 750px) {
+
+    .announcement-actions {
+        position: static;
+
+        display: flex;
+
+        justify-content: center;
+
+        margin-top: -20px;
+
+        margin-bottom: 30px;
+    }
+
+
+    .announcement-product-row {
+        flex-direction: column;
+
+        align-items: stretch;
+
+        gap: 12px;
+    }
+
+
+    .announcement-quantity {
+        width: 100%;
+    }
+
+
+    .announcement-card-actions {
+        flex-direction: row;
     }
 
 }
