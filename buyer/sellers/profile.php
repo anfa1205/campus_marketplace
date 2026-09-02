@@ -1,27 +1,39 @@
 <?php
 
 require_once "../../config/database.php";
+require_once "../../includes/buyer_check.php";
 
-include "../../includes/header.php";
-
-
-$seller_id =
-    isset($_GET["id"])
+$seller_id = isset($_GET["id"])
     ? intval($_GET["id"])
     : 0;
 
 
+/* =========================================================
+   GET SELLER INFORMATION + RATING
+   ========================================================= */
+
 $stmt = $pdo->prepare(
     "SELECT
-        sellerID,
-        StudentID,
-        department,
-        Name,
-        Mail,
-        bussinessName,
-        Phone
-     FROM SELLER
-     WHERE sellerID = ?"
+        s.sellerID,
+        s.StudentID,
+        s.department,
+        s.Name,
+        s.Mail,
+        s.bussinessName,
+        s.Phone,
+
+        COALESCE(
+            (
+                SELECT AVG(f.Rating)
+                FROM feedback f
+                WHERE f.sellerID = s.sellerID
+            ),
+            0
+        ) AS average_rating
+
+     FROM seller s
+
+     WHERE s.sellerID = ?"
 );
 
 $stmt->execute([
@@ -33,23 +45,42 @@ $seller = $stmt->fetch();
 
 if (!$seller) {
 
-    echo "<h2>Seller not found.</h2>";
+    include "../../includes/header.php";
+
+    echo '
+        <div class="profile-not-found">
+            <h2>Seller not found.</h2>
+            <a href="index.php" class="btn">
+                Back to Sellers
+            </a>
+        </div>
+    ';
 
     include "../../includes/footer.php";
 
     exit;
-
 }
 
+
+/* =========================================================
+   GET SELLER PRODUCTS
+   ========================================================= */
 
 $stmt = $pdo->prepare(
     "SELECT
         ProductID,
         ProductName,
-        price,
-        stock
-     FROM PRODUCT
-     WHERE sellerID = ?"
+        Description,
+        Category,
+        Stock,
+        Price,
+        Status
+
+     FROM product
+
+     WHERE SellerID = ?
+
+     ORDER BY ProductID DESC"
 );
 
 $stmt->execute([
@@ -59,107 +90,467 @@ $stmt->execute([
 $products = $stmt->fetchAll();
 
 
+/* =========================================================
+   RATING
+   ========================================================= */
+
+$rating = round(
+    floatval($seller["average_rating"]),
+    1
+);
+
+$full_stars = floor($rating);
+
+$half_star =
+    ($rating - $full_stars >= 0.5)
+    ? 1
+    : 0;
+
+$empty_stars =
+    5 - $full_stars - $half_star;
+
+
+include "../../includes/header.php";
+
 ?>
 
 
-<h1>
-    <?= htmlspecialchars(
-        $seller["bussinessName"]
-    ) ?>
-</h1>
-
-<br>
+<div class="seller-profile-page">
 
 
-<div class="card">
+    <!-- =====================================================
+         PROFILE HEADER
+         ===================================================== -->
 
-    <h2>
-        Seller Information
-    </h2>
+    <div class="seller-profile-hero">
 
-    <br>
+        <div class="seller-profile-icon">
 
-    <p>
-        Seller Name:
-        <?= htmlspecialchars(
-            $seller["Name"]
-        ) ?>
-    </p>
-
-    <p>
-        Department:
-        <?= htmlspecialchars(
-            $seller["department"]
-        ) ?>
-    </p>
-
-    <p>
-        Business:
-        <?= htmlspecialchars(
-            $seller["bussinessName"]
-        ) ?>
-    </p>
-
-    <br>
-
-    <a
-        class="btn"
-        href="../chat/index.php?seller_id=<?= $seller["sellerID"] ?>"
-    >
-        Chat with Seller
-    </a>
-
-</div>
-
-
-<br><br>
-
-
-<h2>
-    Seller Products
-</h2>
-
-<br>
-
-
-<div
-    style="
-        display:grid;
-        grid-template-columns:
-        repeat(3, 1fr);
-        gap:20px;
-    "
->
-
-<?php foreach ($products as $product): ?>
-
-    <div class="card">
-
-        <h3>
-            <?= htmlspecialchars(
-                $product["ProductName"]
+            <?= strtoupper(
+                substr(
+                    $seller["bussinessName"],
+                    0,
+                    1
+                )
             ) ?>
-        </h3>
 
-        <br>
+        </div>
 
-        <p>
-            Price:
-            ৳<?= htmlspecialchars(
-                $product["price"]
-            ) ?>
-        </p>
 
-        <p>
-            Stock:
-            <?= htmlspecialchars(
-                $product["stock"]
-            ) ?>
-        </p>
+        <div class="seller-profile-title">
+
+            <p class="dashboard-label">
+                SELLER PROFILE
+            </p>
+
+            <h1>
+                <?= htmlspecialchars(
+                    $seller["bussinessName"]
+                ) ?>
+            </h1>
+
+            <p class="seller-profile-subtitle">
+                <?= htmlspecialchars(
+                    $seller["department"]
+                ) ?>
+            </p>
+
+        </div>
 
     </div>
 
-<?php endforeach; ?>
+
+    <!-- =====================================================
+         SELLER INFORMATION
+         ===================================================== -->
+
+    <div class="seller-profile-grid">
+
+
+        <div class="seller-info-card">
+
+            <div class="seller-section-title">
+                Seller Information
+            </div>
+
+
+            <div class="seller-info-row">
+
+                <span>
+                    Seller Name
+                </span>
+
+                <strong>
+                    <?= htmlspecialchars(
+                        $seller["Name"]
+                    ) ?>
+                </strong>
+
+            </div>
+
+
+            <div class="seller-info-row">
+
+                <span>
+                    Department
+                </span>
+
+                <strong>
+                    <?= htmlspecialchars(
+                        $seller["department"]
+                    ) ?>
+                </strong>
+
+            </div>
+
+
+            <div class="seller-info-row">
+
+                <span>
+                    Business
+                </span>
+
+                <strong>
+                    <?= htmlspecialchars(
+                        $seller["bussinessName"]
+                    ) ?>
+                </strong>
+
+            </div>
+
+
+            <div class="seller-info-row">
+
+                <span>
+                    Phone
+                </span>
+
+                <strong>
+                    <?= htmlspecialchars(
+                        $seller["Phone"]
+                    ) ?>
+                </strong>
+
+            </div>
+
+
+            <div class="seller-info-row">
+
+                <span>
+                    Email
+                </span>
+
+                <strong>
+                    <?= htmlspecialchars(
+                        $seller["Mail"]
+                    ) ?>
+                </strong>
+
+            </div>
+
+        </div>
+
+
+        <!-- =================================================
+             RATING
+             ================================================= -->
+
+        <div class="seller-rating-card">
+
+            <div class="seller-section-title">
+                Seller Rating
+            </div>
+
+
+            <div class="big-rating">
+
+                <span class="rating-number">
+                    <?= number_format(
+                        $rating,
+                        1
+                    ) ?>
+                </span>
+
+
+                <div class="rating-stars">
+
+                    <?php for (
+                        $i = 0;
+                        $i < $full_stars;
+                        $i++
+                    ): ?>
+
+                        <span class="star filled">
+                            ★
+                        </span>
+
+                    <?php endfor; ?>
+
+
+                    <?php if ($half_star): ?>
+
+                        <span class="star half">
+                            ★
+                        </span>
+
+                    <?php endif; ?>
+
+
+                    <?php for (
+                        $i = 0;
+                        $i < $empty_stars;
+                        $i++
+                    ): ?>
+
+                        <span class="star empty">
+                            ★
+                        </span>
+
+                    <?php endfor; ?>
+
+                </div>
+
+            </div>
+
+
+            <p class="rating-description">
+
+                <?= $rating > 0
+                    ? "Average seller rating"
+                    : "No ratings yet"
+                ?>
+
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         CHAT BUTTON
+         ===================================================== -->
+
+    <div class="seller-chat-section">
+
+        <a
+            href="../chat/index.php?seller_id=<?= $seller["sellerID"] ?>"
+            class="seller-chat-button"
+        >
+
+            <span>
+                💬
+            </span>
+
+            Chat with Seller
+
+        </a>
+
+    </div>
+
+
+    <!-- =====================================================
+         PRODUCTS
+         ===================================================== -->
+
+    <div class="seller-products-section">
+
+        <div class="seller-products-heading">
+
+            <div>
+
+                <p class="dashboard-label">
+                    MARKETPLACE
+                </p>
+
+                <h2>
+                    Products
+                </h2>
+
+            </div>
+
+
+            <span class="product-count">
+
+                <?= count($products) ?>
+
+                <?= count($products) == 1
+                    ? "Product"
+                    : "Products" ?>
+
+            </span>
+
+        </div>
+
+
+        <?php if (empty($products)): ?>
+
+            <div class="no-products">
+
+                <h3>
+                    No products available
+                </h3>
+
+                <p>
+                    This seller has not added any products yet.
+                </p>
+
+            </div>
+
+
+        <?php else: ?>
+
+
+            <div class="seller-products-grid">
+
+
+                <?php foreach ($products as $product): ?>
+
+
+                    <?php
+
+                    $status =
+                        $product["Status"];
+
+                    if (
+                        intval($product["Stock"]) <= 0
+                    ) {
+
+                        $display_status =
+                            "Out of Stock";
+
+                        $status_class =
+                            "out";
+
+                    } elseif (
+                        strtolower($status)
+                        === "unavailable"
+                    ) {
+
+                        $display_status =
+                            "Unavailable";
+
+                        $status_class =
+                            "unavailable";
+
+                    } else {
+
+                        $display_status =
+                            "Available";
+
+                        $status_class =
+                            "available";
+                    }
+
+                    ?>
+
+
+                    <div class="seller-product-card">
+
+
+                        <div class="product-card-top">
+
+                            <span class="product-category">
+
+                                <?= htmlspecialchars(
+                                    $product["Category"]
+                                ) ?>
+
+                            </span>
+
+
+                            <span
+                                class="product-status
+                                <?= $status_class ?>"
+                            >
+
+                                <?= $display_status ?>
+
+                            </span>
+
+                        </div>
+
+
+                        <h3>
+                            <?= htmlspecialchars(
+                                $product["ProductName"]
+                            ) ?>
+                        </h3>
+
+
+                        <?php if (
+                            !empty(
+                                $product["Description"]
+                            )
+                        ): ?>
+
+                            <p class="product-description">
+
+                                <?= htmlspecialchars(
+                                    $product["Description"]
+                                ) ?>
+
+                            </p>
+
+                        <?php endif; ?>
+
+
+                        <div class="product-card-bottom">
+
+                            <strong class="product-price">
+
+                                ৳<?= number_format(
+                                    floatval(
+                                        $product["Price"]
+                                    ),
+                                    2
+                                ) ?>
+
+                            </strong>
+
+
+                            <span class="product-stock">
+
+                                Stock:
+                                <?= intval(
+                                    $product["Stock"]
+                                ) ?>
+
+                            </span>
+
+                        </div>
+
+
+                    </div>
+
+
+                <?php endforeach; ?>
+
+
+            </div>
+
+
+        <?php endif; ?>
+
+
+    </div>
+
+
+    <!-- =====================================================
+         BACK BUTTON
+         ===================================================== -->
+
+    <div class="seller-profile-back">
+
+        <a
+            href="index.php"
+            class="btn"
+        >
+            ← Back to Sellers
+        </a>
+
+    </div>
+
 
 </div>
 

@@ -1,77 +1,237 @@
 <?php
 
 require_once "../../config/database.php";
+require_once "../../includes/buyer_check.php";
 
-include "../../includes/header.php";
 
+/* =========================================================
+   GET ALL SELLERS + RATING
+   ========================================================= */
 
 $stmt = $pdo->query(
     "SELECT
-        sellerID,
-        bussinessName,
-        department
-     FROM SELLER
-     ORDER BY bussinessName"
+        s.sellerID,
+        s.Name,
+        s.department,
+        s.bussinessName,
+
+        COALESCE(
+            (
+                SELECT AVG(f.Rating)
+                FROM feedback f
+                WHERE f.sellerID = s.sellerID
+            ),
+            0
+        ) AS average_rating,
+
+        (
+            SELECT COUNT(p.ProductID)
+            FROM product p
+            WHERE p.SellerID = s.sellerID
+        ) AS product_count
+
+     FROM seller s
+
+     ORDER BY s.bussinessName"
 );
 
 $sellers = $stmt->fetchAll();
 
+
+include "../../includes/header.php";
+
 ?>
 
 
-<h1>
-    Sellers
-</h1>
-
-<br>
-
-<p>
-    Browse sellers and view their public profiles.
-</p>
-
-<br>
+<div class="sellers-page">
 
 
-<div
-    style="
-        display:grid;
-        grid-template-columns:
-        repeat(3, 1fr);
-        gap:20px;
-    "
->
+    <!-- =====================================================
+         HEADER
+         ===================================================== -->
 
-<?php foreach ($sellers as $seller): ?>
+    <div class="sellers-page-header">
 
-    <div class="card">
-
-        <h2>
-            <?= htmlspecialchars(
-                $seller["bussinessName"]
-            ) ?>
-        </h2>
-
-        <br>
-
-        <p>
-            Department:
-            <?= htmlspecialchars(
-                $seller["department"]
-            ) ?>
+        <p class="dashboard-label">
+            CAMPUS MARKETPLACE
         </p>
 
-        <br>
+        <h1>
+            Seller Profiles
+        </h1>
 
-        <a
-            class="btn"
-            href="profile.php?id=<?= $seller["sellerID"] ?>"
-        >
-            View Seller Profile
-        </a>
+        <p>
+            Explore sellers, their products and ratings.
+        </p>
+
+        <div class="title-line"></div>
 
     </div>
 
-<?php endforeach; ?>
+
+    <!-- =====================================================
+         SELLER CARDS
+         ===================================================== -->
+
+    <?php if (empty($sellers)): ?>
+
+        <div class="no-products">
+
+            <h3>
+                No sellers available
+            </h3>
+
+        </div>
+
+
+    <?php else: ?>
+
+
+        <div class="seller-directory-grid">
+
+
+            <?php foreach ($sellers as $seller): ?>
+
+
+                <?php
+
+                $rating = round(
+                    floatval(
+                        $seller["average_rating"]
+                    ),
+                    1
+                );
+
+                $full_stars = floor($rating);
+
+                ?>
+
+
+                <div class="seller-directory-card">
+
+
+                    <div class="seller-directory-top">
+
+                        <div class="seller-directory-icon">
+
+                            <?= strtoupper(
+                                substr(
+                                    $seller["bussinessName"],
+                                    0,
+                                    1
+                                )
+                            ) ?>
+
+                        </div>
+
+
+                        <div>
+
+                            <h2>
+
+                                <?= htmlspecialchars(
+                                    $seller["bussinessName"]
+                                ) ?>
+
+                            </h2>
+
+                            <p>
+
+                                <?= htmlspecialchars(
+                                    $seller["Name"]
+                                ) ?>
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="seller-directory-rating">
+
+                        <div class="directory-stars">
+
+                            <?php for (
+                                $i = 1;
+                                $i <= 5;
+                                $i++
+                            ): ?>
+
+                                <span
+                                    class="<?= $i <= $full_stars
+                                        ? "filled"
+                                        : "empty" ?>"
+                                >
+                                    ★
+                                </span>
+
+                            <?php endfor; ?>
+
+                        </div>
+
+
+                        <span>
+
+                            <?= number_format(
+                                $rating,
+                                1
+                            ) ?>
+
+                        </span>
+
+                    </div>
+
+
+                    <div class="seller-directory-details">
+
+                        <p>
+
+                            <strong>
+                                Department:
+                            </strong>
+
+                            <?= htmlspecialchars(
+                                $seller["department"]
+                            ) ?>
+
+                        </p>
+
+
+                        <p>
+
+                            <strong>
+                                Products:
+                            </strong>
+
+                            <?= intval(
+                                $seller["product_count"]
+                            ) ?>
+
+                        </p>
+
+                    </div>
+
+
+                    <a
+                        href="profile.php?id=<?= $seller["sellerID"] ?>"
+                        class="btn seller-view-button"
+                    >
+                        View Seller Profile →
+                    </a>
+
+
+                </div>
+
+
+            <?php endforeach; ?>
+
+
+        </div>
+
+
+    <?php endif; ?>
+
 
 </div>
 
