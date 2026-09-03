@@ -14,8 +14,8 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 $buyerID =
     (int) $_SESSION["user_id"];
 
-$announcementID =
-    (int) ($_POST["announcement_id"] ?? 0);
+$promotionID =
+    (int) ($_POST["promotion_id"] ?? 0);
 
 $productID =
     (int) ($_POST["product_id"] ?? 0);
@@ -25,7 +25,7 @@ $paidQuantity =
 
 
 if (
-    $announcementID <= 0 ||
+    $promotionID <= 0 ||
     $productID <= 0 ||
     $paidQuantity <= 0
 ) {
@@ -46,50 +46,18 @@ try {
     $pdo->beginTransaction();
 
 
-    /* ANNOUNCEMENT */
+    /* GET OFFER + PRODUCT */
 
     $stmt = $pdo->prepare("
         SELECT
-            AnnouncementId,
-            SellerId,
-            SellingDate,
-            SellingTime,
-            CampusLocation,
-            Status
-
-        FROM sales_announcement
-
-        WHERE AnnouncementId = ?
-
-        FOR UPDATE
-    ");
-
-    $stmt->execute([
-        $announcementID
-    ]);
-
-    $announcement =
-        $stmt->fetch();
-
-
-    if (!$announcement) {
-
-        throw new Exception(
-            "Sales announcement not found."
-        );
-    }
-
-
-    $sellerID =
-        (int) $announcement["SellerId"];
-
-
-    /* PRODUCT */
-
-    $stmt = $pdo->prepare("
-        SELECT
-            i.productID,
-            i.quantity AS SaleQuantity,
+            pr.PromotionId,
+            pr.OfferType,
+            pr.DiscountValue,
+            pr.BuyQuantity,
+            pr.GetQuantity,
+            pr.StartDate,
+            pr.EndDate,
+            pr.SellerId,
 
             p.ProductID,
             p.ProductName,
@@ -97,37 +65,42 @@ try {
             p.Stock,
             p.Status
 
-        FROM includes i
+        FROM promotion pr
+
+        INNER JOIN applies_to a
+            ON pr.PromotionId = a.promotionID
 
         INNER JOIN product p
-            ON i.productID = p.ProductID
+            ON a.productID = p.ProductID
 
-        WHERE i.announcementID = ?
-          AND i.productID = ?
+        WHERE pr.PromotionId = ?
+          AND p.ProductID = ?
+          AND pr.SellerId = p.SellerID
+          AND NOW() BETWEEN pr.StartDate AND pr.EndDate
 
         FOR UPDATE
     ");
 
     $stmt->execute([
-        $announcementID,
+        $promotionID,
         $productID
     ]);
 
-    $product =
+    $offer =
         $stmt->fetch();
 
 
-    if (!$product) {
+    if (!$offer) {
 
         throw new Exception(
-            "This product is not included in this sales announcement."
+            "This offer is no longer active."
         );
     }
 
 
     if (
         strcasecmp(
-            trim($product["Status"]),
+            trim($offer["Status"]),
             "Available"
         ) !== 0
     ) {
@@ -139,79 +112,10 @@ try {
 
 
     $stock =
-        (int) $product["Stock"];
-
-    $saleQuantity =
-        (int) $product["SaleQuantity"];
+        (int) $offer["Stock"];
 
 
-    if ($stock <= 0) {
-
-        throw new Exception(
-            "This product is out of stock."
-        );
-    }
-
-
-    if ($saleQuantity <= 0) {
-
-        throw new Exception(
-            "No quantity is available in this announcement."
-        );
-    }
-
-
-    /* ALREADY RESERVED */
-
-    $stmt = $pdo->prepare("
-        SELECT
-            COALESCE(
-                SUM(c.quantity),
-                0
-            )
-
-        FROM reservation r
-
-        INNER JOIN contains c
-            ON r.ReservationID =
-               c.reservationID
-
-        WHERE r.announcementID = ?
-          AND c.productID = ?
-
-          AND r.Status <> 'Rejected'
-    ");
-
-    $stmt->execute([
-        $announcementID,
-        $productID
-    ]);
-
-    $alreadyReserved =
-        (int) $stmt->fetchColumn();
-
-
-    $remainingSale =
-        $saleQuantity -
-        $alreadyReserved;
-
-
-    if ($remainingSale <= 0) {
-
-        throw new Exception(
-            "No reservation quantity remains."
-        );
-    }
-
-
-    /* ACTIVE OFFER */
-
-    $offer =
-        getActiveOffer(
-            $pdo,
-            $productID
-        );
-
+    /* CALCULATE QUANTITY */
 
     $calculated =
         calculateOfferQuantity(
@@ -229,22 +133,62 @@ try {
         $calculated["totalQuantity"];
 
 
-    $maximumUnits =
-        min(
-            $stock,
-            $remainingSale
+    if ($totalQuantity <= 0) {
+
+        throw new Exception(
+            "Invalid reservation quantity."
         );
+    }
+
+
+    /* CHECK EXISTING ACTIVE RESERVATIONS */
+
+    $stmt = $pdo->prepare("
+        SELECT
+            COALESCE(
+                SUM(c.quantity),
+                0
+            )
+
+        FROM reservation r
+
+        INNER JOIN contains c
+            ON r.ReservationID =
+               c.reservationID
+
+        WHERE r.sellerID = ?
+          AND c.productID = ?
+
+          AND r.Status IN
+          (
+              'Pending',
+              'Accepted',
+              'Ready for Pickup'
+          )
+    ");
+
+    $stmt->execute([
+        $offer["SellerId"],
+        $productID
+    ]);
+
+    $reserved =
+        (int) $stmt->fetchColumn();
+
+
+    $remainingStock =
+        $stock - $reserved;
 
 
     if (
         $totalQuantity >
-        $maximumUnits
+        $remainingStock
     ) {
 
         throw new Exception(
-            "You can reserve a maximum of " .
-            $maximumUnits .
-            " total item(s), including free item(s)."
+            "Only " .
+            max(0, $remainingStock) .
+            " item(s) remain available."
         );
     }
 
@@ -253,15 +197,9 @@ try {
 
     $unitPrice =
         getOfferPrice(
-            (float) $product["Price"],
+            (float) $offer["Price"],
             $offer
         );
-
-
-    $promotionID =
-        $offer
-            ? (int) $offer["PromotionId"]
-            : null;
 
 
     /* BUYER */
@@ -270,11 +208,8 @@ try {
         SELECT
             BuyerID,
             Phone
-
         FROM buyer
-
         WHERE BuyerID = ?
-
         FOR UPDATE
     ");
 
@@ -294,7 +229,7 @@ try {
     }
 
 
-    /* CREATE RESERVATION */
+    /* RESERVATION */
 
     $stmt = $pdo->prepare("
         INSERT INTO reservation
@@ -313,7 +248,7 @@ try {
             ?,
             'Pending',
             ?,
-            ?,
+            NULL,
             ?
         )
     ");
@@ -321,8 +256,7 @@ try {
     $stmt->execute([
         $buyer["Phone"],
         $buyerID,
-        $announcementID,
-        $sellerID
+        $offer["SellerId"]
     ]);
 
 
@@ -330,7 +264,7 @@ try {
         (int) $pdo->lastInsertId();
 
 
-    /* SAVE CONTAINS */
+    /* CONTAINS */
 
     $stmt = $pdo->prepare("
         INSERT INTO contains

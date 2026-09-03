@@ -91,6 +91,39 @@ $products = $stmt->fetchAll();
 
 
 /* =========================================================
+   GET CUSTOMER REVIEWS
+   ========================================================= */
+
+$stmt = $pdo->prepare(
+    "SELECT
+        f.FeedbackID,
+        f.Rating,
+        f.Comment,
+        f.FeedbackDate,
+        b.Name AS BuyerName,
+        pu.PurchaseType
+
+     FROM feedback f
+
+     INNER JOIN buyer b
+        ON f.buyerID = b.BuyerID
+
+     LEFT JOIN purchase pu
+        ON f.purchaseID = pu.PurchaseID
+
+     WHERE f.sellerID = ?
+
+     ORDER BY f.FeedbackDate DESC"
+);
+
+$stmt->execute([
+    $seller_id
+]);
+
+$reviews = $stmt->fetchAll();
+
+
+/* =========================================================
    RATING
    ========================================================= */
 
@@ -519,6 +552,219 @@ include "../../includes/header.php";
                             </span>
 
                         </div>
+
+
+                    </div>
+
+
+                <?php endforeach; ?>
+
+
+            </div>
+
+
+        <?php endif; ?>
+
+
+    </div>
+
+
+    <!-- =====================================================
+         CUSTOMER REVIEWS
+         ===================================================== -->
+
+    <div class="seller-reviews-section">
+
+        <div class="seller-products-heading">
+
+            <div>
+
+                <p class="dashboard-label">
+                    CUSTOMER FEEDBACK
+                </p>
+
+                <h2>
+                    Customer Reviews
+                </h2>
+
+            </div>
+
+
+            <span class="product-count">
+
+                <?= count($reviews) ?>
+
+                <?= count($reviews) == 1
+                    ? "Review"
+                    : "Reviews" ?>
+
+            </span>
+
+        </div>
+
+
+        <?php if (empty($reviews)): ?>
+
+            <div class="no-products">
+
+                <h3>
+                    No reviews yet
+                </h3>
+
+                <p>
+                    This seller has not received any customer reviews yet.
+                </p>
+
+            </div>
+
+
+        <?php else: ?>
+
+
+            <div class="seller-reviews-list">
+
+
+                <?php foreach ($reviews as $review): ?>
+
+
+                    <?php
+
+                    $review_rating =
+                        floatval(
+                            $review["Rating"]
+                        );
+
+                    $review_full_stars =
+                        floor(
+                            $review_rating
+                        );
+
+                    $review_half_star =
+                        (
+                            $review_rating
+                            - $review_full_stars
+                            >= 0.5
+                        )
+                        ? 1
+                        : 0;
+
+                    $review_empty_stars =
+                        5
+                        - $review_full_stars
+                        - $review_half_star;
+
+                    ?>
+
+
+                    <div class="seller-review-card">
+
+
+                        <div class="review-header">
+
+
+                            <div>
+
+                                <strong class="review-buyer">
+
+                                    <?= htmlspecialchars(
+                                        $review["BuyerName"]
+                                    ) ?>
+
+                                </strong>
+
+                                <br>
+
+                                <span class="review-date">
+
+                                    <?= htmlspecialchars(
+                                        date(
+                                            "d M Y",
+                                            strtotime(
+                                                $review["FeedbackDate"]
+                                            )
+                                        )
+                                    ) ?>
+
+                                </span>
+
+                            </div>
+
+
+                            <div class="review-stars">
+
+
+                                <?php for (
+                                    $i = 0;
+                                    $i < $review_full_stars;
+                                    $i++
+                                ): ?>
+
+                                    <span class="star filled">
+                                        ★
+                                    </span>
+
+                                <?php endfor; ?>
+
+
+                                <?php if ($review_half_star): ?>
+
+                                    <span class="star half">
+                                        ★
+                                    </span>
+
+                                <?php endif; ?>
+
+
+                                <?php for (
+                                    $i = 0;
+                                    $i < $review_empty_stars;
+                                    $i++
+                                ): ?>
+
+                                    <span class="star empty">
+                                        ★
+                                    </span>
+
+                                <?php endfor; ?>
+
+
+                                <span class="review-rating-number">
+
+                                    <?= number_format(
+                                        $review_rating,
+                                        1
+                                    ) ?>
+
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <?php if (
+                            !empty(
+                                $review["Comment"]
+                            )
+                        ): ?>
+
+                            <p class="review-comment">
+
+                                <?= htmlspecialchars(
+                                    $review["Comment"]
+                                ) ?>
+
+                            </p>
+
+                        <?php else: ?>
+
+                            <p class="review-comment">
+
+                                No comment provided.
+
+                            </p>
+
+                        <?php endif; ?>
 
 
                     </div>

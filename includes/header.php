@@ -102,7 +102,7 @@ if (session_status() === PHP_SESSION_NONE) {
                     <a
                         href="/campus_marketplace/buyer/promotions/index.php"
                     >
-                        Promotions
+                        Offers
                     </a>
 
 

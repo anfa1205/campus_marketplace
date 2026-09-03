@@ -168,7 +168,7 @@ $buyerName =
         </a>
 
 
-        <!-- Promotions -->
+        <!-- Offers -->
 
         <a
             href="promotions/index.php"
@@ -180,11 +180,15 @@ $buyerName =
             </div>
 
             <h3>
-                Active Promotions
+                Offers
             </h3>
 
+            <p>
+               
+            </p>
+
             <span class="card-arrow">
-                →
+        →
             </span>
 
         </a>

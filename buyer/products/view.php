@@ -1,13 +1,13 @@
-```php
 <?php
 
 require_once "../../config/database.php";
 require_once "../../includes/buyer_check.php";
+require_once "../../includes/offer_helper.php";
 
 include "../../includes/header.php";
 
 
-$product_id =
+$productID =
     isset($_GET["id"])
         ? (int) $_GET["id"]
         : 0;
@@ -16,10 +16,10 @@ $product_id =
 $product = null;
 
 
-if ($product_id > 0) {
+if ($productID > 0) {
 
-    $stmt = $pdo->prepare(
-        "SELECT
+    $stmt = $pdo->prepare("
+        SELECT
             p.ProductID,
             p.ProductName,
             p.Description,
@@ -33,16 +33,16 @@ if ($product_id > 0) {
             s.bussinessName,
             s.department
 
-         FROM PRODUCT p
+        FROM product p
 
-         INNER JOIN SELLER s
+        INNER JOIN seller s
             ON p.SellerID = s.sellerID
 
-         WHERE p.ProductID = ?"
-    );
+        WHERE p.ProductID = ?
+    ");
 
     $stmt->execute([
-        $product_id
+        $productID
     ]);
 
     $product =
@@ -73,11 +73,9 @@ $status =
     );
 
 
-if (
-    $stock <= 0
-) {
+if ($stock <= 0) {
 
-    $display_status =
+    $displayStatus =
         "Out of Stock";
 
 } elseif (
@@ -87,18 +85,34 @@ if (
     ) === 0
 ) {
 
-    $display_status =
+    $displayStatus =
         "Unavailable";
 
 } else {
 
-    $display_status =
+    $displayStatus =
         "Available";
 
 }
 
-?>
 
+$offer =
+    getActiveOffer(
+        $pdo,
+        (int) $product["ProductID"]
+    );
+
+
+$originalPrice =
+    (float) $product["Price"];
+
+$offerPrice =
+    getOfferPrice(
+        $originalPrice,
+        $offer
+    );
+
+?>
 
 <div class="product-details-page">
 
@@ -114,6 +128,62 @@ if (
                 ) ?>
 
             </span>
+
+
+            <?php if ($offer): ?>
+
+                <?php if (
+                    $offer["OfferType"]
+                    === "Percentage"
+                ): ?>
+
+                    <div style="
+                        display:inline-block;
+                        margin:12px 0;
+                        padding:10px 18px;
+                        border-radius:25px;
+                        background:var(--purple);
+                        color:white;
+                        font-weight:800;
+                    ">
+
+                        <?= number_format(
+                            (float)
+                            $offer["DiscountValue"],
+                            0
+                        ) ?>% DISCOUNT
+
+                    </div>
+
+                <?php elseif (
+                    $offer["OfferType"]
+                    === "BuyXGetY"
+                ): ?>
+
+                    <div style="
+                        display:inline-block;
+                        margin:12px 0;
+                        padding:10px 18px;
+                        border-radius:25px;
+                        background:var(--purple);
+                        color:white;
+                        font-weight:800;
+                    ">
+
+                        BUY
+                        <?= (int)
+                            $offer["BuyQuantity"] ?>
+
+                        GET
+
+                        <?= (int)
+                            $offer["GetQuantity"] ?>
+
+                    </div>
+
+                <?php endif; ?>
+
+            <?php endif; ?>
 
 
             <h1>
@@ -156,16 +226,109 @@ if (
                     Price
                 </h3>
 
-                <p class="product-price">
 
-                    ৳<?= number_format(
-                        (float) $product["Price"],
-                        2
-                    ) ?>
+                <?php if (
+                    $offer &&
+                    $offer["OfferType"]
+                    === "Percentage"
+                ): ?>
 
-                </p>
+                    <p class="product-price">
+
+                        <span style="
+                            text-decoration:line-through;
+                            opacity:.6;
+                            font-size:16px;
+                        ">
+                            ৳<?= number_format(
+                                $originalPrice,
+                                2
+                            ) ?>
+                        </span>
+
+                        <strong style="
+                            color:var(--purple);
+                            margin-left:10px;
+                            font-size:24px;
+                        ">
+                            ৳<?= number_format(
+                                $offerPrice,
+                                2
+                            ) ?>
+                        </strong>
+
+                    </p>
+
+                    <p style="
+                        color:var(--purple);
+                        font-weight:600;
+                    ">
+                        Offer price per item
+                    </p>
+
+                <?php else: ?>
+
+                    <p class="product-price">
+
+                        ৳<?= number_format(
+                            $originalPrice,
+                            2
+                        ) ?>
+
+                    </p>
+
+                <?php endif; ?>
 
             </div>
+
+
+            <?php if (
+                $offer &&
+                $offer["OfferType"]
+                === "BuyXGetY"
+            ): ?>
+
+                <div class="product-detail-section">
+
+                    <h3>
+                        Special Offer
+                    </h3>
+
+                    <p style="
+                        color:var(--purple);
+                        font-weight:700;
+                        font-size:18px;
+                    ">
+
+                        Buy
+                        <?= (int)
+                            $offer["BuyQuantity"] ?>
+
+                        Get
+
+                        <?= (int)
+                            $offer["GetQuantity"] ?>
+
+                        Free
+
+                    </p>
+
+                    <p>
+                        Example:
+                        Buy
+                        <?= (int)
+                            $offer["BuyQuantity"] ?>
+
+                        paid item(s) and receive
+                        <?= (int)
+                            $offer["GetQuantity"] ?>
+
+                        additional free item(s).
+                    </p>
+
+                </div>
+
+            <?php endif; ?>
 
 
             <div class="product-detail-section">
@@ -175,9 +338,7 @@ if (
                 </h3>
 
                 <p>
-
                     <?= $stock ?>
-
                 </p>
 
             </div>
@@ -192,7 +353,7 @@ if (
                 <p>
 
                     <?= htmlspecialchars(
-                        $display_status
+                        $displayStatus
                     ) ?>
 
                 </p>
@@ -258,4 +419,3 @@ if (
 include "../../includes/footer.php";
 
 ?>
-```

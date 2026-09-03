@@ -1,37 +1,32 @@
-```php
 <?php
-
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 
 require_once "../../config/database.php";
 require_once "../../includes/buyer_check.php";
+require_once "../../includes/offer_helper.php";
 
-include "../../includes/header.php";
-
-
-/* Get selected category */
-
-$category = trim($_GET["category"] ?? "");
-
-
-/* Get all categories */
-
-$category_stmt = $pdo->query(
-    "SELECT DISTINCT Category
-     FROM PRODUCT
-     ORDER BY Category"
-);
-
-$categories = $category_stmt->fetchAll();
+$category =
+    isset($_GET["category"])
+        ? trim($_GET["category"])
+        : "";
 
 
-/* Get products */
+/* CATEGORIES */
+
+$stmt = $pdo->query("
+    SELECT DISTINCT Category
+    FROM product
+    ORDER BY Category
+");
+
+$categories = $stmt->fetchAll();
+
+
+/* PRODUCTS */
 
 if ($category !== "") {
 
-    $stmt = $pdo->prepare(
-        "SELECT
+    $stmt = $pdo->prepare("
+        SELECT
             p.ProductID,
             p.ProductName,
             p.Description,
@@ -39,28 +34,27 @@ if ($category !== "") {
             p.Stock,
             p.Price,
             p.Status,
+
             s.sellerID,
             s.Name AS SellerName,
             s.bussinessName
 
-         FROM PRODUCT p
+        FROM product p
 
-         INNER JOIN SELLER s
+        INNER JOIN seller s
             ON p.SellerID = s.sellerID
 
-         WHERE p.Category = ?
+        WHERE p.Category = ?
 
-         ORDER BY p.ProductID DESC"
-    );
+        ORDER BY p.ProductID DESC
+    ");
 
-    $stmt->execute([
-        $category
-    ]);
+    $stmt->execute([$category]);
 
 } else {
 
-    $stmt = $pdo->query(
-        "SELECT
+    $stmt = $pdo->query("
+        SELECT
             p.ProductID,
             p.ProductName,
             p.Description,
@@ -68,24 +62,26 @@ if ($category !== "") {
             p.Stock,
             p.Price,
             p.Status,
+
             s.sellerID,
             s.Name AS SellerName,
             s.bussinessName
 
-         FROM PRODUCT p
+        FROM product p
 
-         INNER JOIN SELLER s
+        INNER JOIN seller s
             ON p.SellerID = s.sellerID
 
-         ORDER BY p.ProductID DESC"
-    );
+        ORDER BY p.ProductID DESC
+    ");
 
 }
 
 $products = $stmt->fetchAll();
 
-?>
+include "../../includes/header.php";
 
+?>
 
 <div class="buyer-products-page">
 
@@ -103,8 +99,6 @@ $products = $stmt->fetchAll();
 
     </div>
 
-
-    <!-- Category Filter -->
 
     <div class="product-filter">
 
@@ -124,10 +118,7 @@ $products = $stmt->fetchAll();
                     All Categories
                 </option>
 
-                <?php foreach (
-                    $categories
-                    as $item
-                ): ?>
+                <?php foreach ($categories as $item): ?>
 
                     <option
                         value="<?= htmlspecialchars(
@@ -137,11 +128,9 @@ $products = $stmt->fetchAll();
                             ? "selected"
                             : "" ?>
                     >
-
                         <?= htmlspecialchars(
                             $item["Category"]
                         ) ?>
-
                     </option>
 
                 <?php endforeach; ?>
@@ -153,11 +142,7 @@ $products = $stmt->fetchAll();
     </div>
 
 
-    <!-- Products -->
-
-    <?php if (
-        count($products) === 0
-    ): ?>
+    <?php if (count($products) === 0): ?>
 
         <div class="empty-products">
 
@@ -171,16 +156,11 @@ $products = $stmt->fetchAll();
 
         </div>
 
-
     <?php else: ?>
 
         <div class="products-grid">
 
-            <?php foreach (
-                $products
-                as $product
-            ): ?>
-
+            <?php foreach ($products as $product): ?>
 
                 <?php
 
@@ -192,12 +172,9 @@ $products = $stmt->fetchAll();
                         $product["Status"] ?? ""
                     );
 
+                if ($stock <= 0) {
 
-                if (
-                    $stock <= 0
-                ) {
-
-                    $display_status =
+                    $displayStatus =
                         "Out of Stock";
 
                 } elseif (
@@ -207,18 +184,34 @@ $products = $stmt->fetchAll();
                     ) === 0
                 ) {
 
-                    $display_status =
+                    $displayStatus =
                         "Unavailable";
 
                 } else {
 
-                    $display_status =
+                    $displayStatus =
                         "Available";
 
                 }
 
-                ?>
 
+                $offer =
+                    getActiveOffer(
+                        $pdo,
+                        (int) $product["ProductID"]
+                    );
+
+
+                $originalPrice =
+                    (float) $product["Price"];
+
+                $offerPrice =
+                    getOfferPrice(
+                        $originalPrice,
+                        $offer
+                    );
+
+                ?>
 
                 <div class="product-card">
 
@@ -231,6 +224,64 @@ $products = $stmt->fetchAll();
                             ) ?>
 
                         </span>
+
+
+                        <?php if ($offer): ?>
+
+                            <?php if (
+                                $offer["OfferType"]
+                                === "Percentage"
+                            ): ?>
+
+                                <div style="
+                                    display:inline-block;
+                                    margin:10px 0;
+                                    padding:7px 13px;
+                                    border-radius:20px;
+                                    background:var(--purple);
+                                    color:white;
+                                    font-weight:800;
+                                    font-size:13px;
+                                ">
+
+                                    <?= number_format(
+                                        (float)
+                                        $offer["DiscountValue"],
+                                        0
+                                    ) ?>% OFF
+
+                                </div>
+
+                            <?php elseif (
+                                $offer["OfferType"]
+                                === "BuyXGetY"
+                            ): ?>
+
+                                <div style="
+                                    display:inline-block;
+                                    margin:10px 0;
+                                    padding:7px 13px;
+                                    border-radius:20px;
+                                    background:var(--purple);
+                                    color:white;
+                                    font-weight:800;
+                                    font-size:13px;
+                                ">
+
+                                    BUY
+                                    <?= (int)
+                                        $offer["BuyQuantity"] ?>
+
+                                    GET
+
+                                    <?= (int)
+                                        $offer["GetQuantity"] ?>
+
+                                </div>
+
+                            <?php endif; ?>
+
+                        <?php endif; ?>
 
 
                         <h2>
@@ -252,14 +303,54 @@ $products = $stmt->fetchAll();
                         </p>
 
 
-                        <p class="product-price">
+                        <?php if (
+                            $offer &&
+                            $offer["OfferType"]
+                            === "Percentage"
+                        ): ?>
 
-                            ৳<?= number_format(
-                                (float) $product["Price"],
-                                2
-                            ) ?>
+                            <p
+                                class="product-price"
+                                style="
+                                    margin-bottom:4px;
+                                "
+                            >
 
-                        </p>
+                                <span style="
+                                    text-decoration:line-through;
+                                    opacity:.6;
+                                    font-size:15px;
+                                ">
+                                    ৳<?= number_format(
+                                        $originalPrice,
+                                        2
+                                    ) ?>
+                                </span>
+
+                                <strong style="
+                                    color:var(--purple);
+                                    margin-left:8px;
+                                ">
+                                    ৳<?= number_format(
+                                        $offerPrice,
+                                        2
+                                    ) ?>
+                                </strong>
+
+                            </p>
+
+                        <?php else: ?>
+
+                            <p class="product-price">
+
+                                ৳<?= number_format(
+                                    $originalPrice,
+                                    2
+                                ) ?>
+
+                            </p>
+
+                        <?php endif; ?>
 
 
                         <p class="product-stock">
@@ -273,7 +364,7 @@ $products = $stmt->fetchAll();
                         <p class="product-status">
 
                             <?= htmlspecialchars(
-                                $display_status
+                                $displayStatus
                             ) ?>
 
                         </p>
@@ -300,13 +391,11 @@ $products = $stmt->fetchAll();
 
                 </div>
 
-
             <?php endforeach; ?>
 
         </div>
 
     <?php endif; ?>
-
 
 </div>
 
@@ -316,4 +405,3 @@ $products = $stmt->fetchAll();
 include "../../includes/footer.php";
 
 ?>
-```

@@ -1,32 +1,37 @@
-```php
 <?php
 
 require_once "../config/database.php";
-
 require_once "../includes/seller_check.php";
 
 include "../includes/header.php";
 
-
-$seller_id =
-    $_SESSION["user_id"];
+$seller_id = (int) $_SESSION["user_id"];
 
 
-$stmt = $pdo->prepare(
-    "SELECT bussinessName
-     FROM SELLER
-     WHERE sellerID = ?"
-);
+/* =========================================================
+   SELLER
+   ========================================================= */
+
+$stmt = $pdo->prepare("
+    SELECT
+        sellerID,
+        Name,
+        bussinessName,
+        department,
+        Mail,
+        Phone,
+        AvgRating
+    FROM seller
+    WHERE sellerID = ?
+");
 
 $stmt->execute([
     $seller_id
 ]);
 
-$seller =
-    $stmt->fetch();
+$seller = $stmt->fetch();
 
 ?>
-
 
 <div class="seller-dashboard">
 
@@ -38,7 +43,6 @@ $seller =
         <span>⌁</span>
 
     </div>
-
 
     <div class="academic-decoration decoration-bottom-right">
 
@@ -56,11 +60,9 @@ $seller =
             SELLER DASHBOARD
         </p>
 
-
         <h1>
             Welcome back
         </h1>
-
 
         <h2>
 
@@ -69,7 +71,6 @@ $seller =
             ) ?>
 
         </h2>
-
 
         <div class="title-line"></div>
 
@@ -147,7 +148,7 @@ $seller =
         </a>
 
 
-        <!-- Promotions -->
+        <!-- offers -->
 
         <a
             href="promotions/index.php"
@@ -159,7 +160,7 @@ $seller =
             </div>
 
             <h3>
-                Promotions
+                Offers
             </h3>
 
             <span class="card-arrow">
@@ -235,7 +236,7 @@ $seller =
         </a>
 
 
-        <!-- Manage Profile -->
+        <!-- MY PROFILE -->
 
         <a
             href="profile/index.php"
@@ -247,7 +248,7 @@ $seller =
             </div>
 
             <h3>
-                Manage Profile
+                My Profile
             </h3>
 
             <span class="card-arrow">
@@ -267,4 +268,3 @@ $seller =
 include "../includes/footer.php";
 
 ?>
-```

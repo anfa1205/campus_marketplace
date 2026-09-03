@@ -27,13 +27,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     } else {
 
-        /* Check existing chat */
+        /*
+         * IMPORTANT:
+         * Find the existing conversation first.
+         * We do NOT delete or recreate old conversations.
+         */
 
         $stmt = $pdo->prepare(
             "SELECT ChatID
              FROM chat
              WHERE sellerID = ?
-             AND buyerID = ?"
+             AND buyerID = ?
+             LIMIT 1"
         );
 
         $stmt->execute([
@@ -44,14 +49,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $chat = $stmt->fetch();
 
 
-        /* Create chat if necessary */
+        /*
+         * Only create a chat if one does not already exist.
+         */
 
-        if (!$chat) {
+        if ($chat) {
+
+            $chat_id = $chat["ChatID"];
+
+        } else {
 
             $stmt = $pdo->prepare(
-                "INSERT INTO chat
-                (sellerID, buyerID)
-                VALUES (?, ?)"
+                "INSERT INTO chat (sellerID, buyerID)
+                 VALUES (?, ?)"
             );
 
             $stmt->execute([
@@ -60,15 +70,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             ]);
 
             $chat_id = $pdo->lastInsertId();
-
-        } else {
-
-            $chat_id = $chat["ChatID"];
-
         }
 
 
-        /* Insert seller message */
+        /*
+         * Add the new seller message to the
+         * existing conversation.
+         */
 
         $stmt = $pdo->prepare(
             "INSERT INTO message
@@ -83,8 +91,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
         header(
-            "Location: index.php?buyer_id=" .
-            $buyer_id
+            "Location: index.php?buyer_id=" . $buyer_id
         );
 
         exit;
@@ -93,7 +100,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
 /* =========================================================
-   GET SELLER'S CONVERSATIONS
+   GET ALL SELLER CONVERSATIONS
    ========================================================= */
 
 $stmt = $pdo->prepare(
@@ -126,7 +133,11 @@ $stmt = $pdo->prepare(
      WHERE c.sellerID = ?
 
      ORDER BY
-        COALESCE(last_time, '0000-00-00 00:00:00') DESC,
+        CASE
+            WHEN last_time IS NULL THEN 1
+            ELSE 0
+        END,
+        last_time DESC,
         c.ChatID DESC"
 );
 
@@ -143,8 +154,13 @@ $chats = $stmt->fetchAll();
 
 $selected_buyer = null;
 $messages = [];
+$selected_chat_id = 0;
 
 if ($selected_buyer_id > 0) {
+
+    /*
+     * Get buyer information.
+     */
 
     $stmt = $pdo->prepare(
         "SELECT
@@ -153,7 +169,8 @@ if ($selected_buyer_id > 0) {
             Phone,
             Email
          FROM buyer
-         WHERE BuyerID = ?"
+         WHERE BuyerID = ?
+         LIMIT 1"
     );
 
     $stmt->execute([
@@ -165,13 +182,16 @@ if ($selected_buyer_id > 0) {
 
     if ($selected_buyer) {
 
-        /* Check that this buyer belongs to seller's chat */
+        /*
+         * Find the EXISTING conversation.
+         */
 
         $stmt = $pdo->prepare(
             "SELECT ChatID
              FROM chat
              WHERE sellerID = ?
-             AND buyerID = ?"
+             AND buyerID = ?
+             LIMIT 1"
         );
 
         $stmt->execute([
@@ -188,7 +208,9 @@ if ($selected_buyer_id > 0) {
                 $existing_chat["ChatID"];
 
 
-            /* Get messages */
+            /*
+             * Get ALL old messages.
+             */
 
             $stmt = $pdo->prepare(
                 "SELECT
@@ -206,10 +228,6 @@ if ($selected_buyer_id > 0) {
             ]);
 
             $messages = $stmt->fetchAll();
-
-        } else {
-
-            $selected_chat_id = 0;
         }
     }
 }
@@ -223,9 +241,7 @@ include "../../includes/header.php";
 <div class="chat-page">
 
 
-    <!-- =====================================================
-         PAGE TITLE
-         ===================================================== -->
+    <!-- PAGE HEADER -->
 
     <div class="chat-page-header">
 
@@ -269,10 +285,7 @@ include "../../includes/header.php";
 
                     <a
                         href="index.php?buyer_id=<?= $chat["buyerID"] ?>"
-                        class="chat-list-item
-                        <?= ($selected_buyer_id == $chat["buyerID"])
-                            ? "active"
-                            : "" ?>"
+                        class="chat-list-item <?= ($selected_buyer_id == $chat["buyerID"]) ? "active" : "" ?>"
                     >
 
                         <div class="chat-avatar">
@@ -296,13 +309,14 @@ include "../../includes/header.php";
                                 ) ?>
                             </h3>
 
+
                             <p>
 
                                 <?=
                                 $chat["last_message"]
                                     ? htmlspecialchars(
                                         $chat["last_message"]
-                                      )
+                                    )
                                     : "New conversation"
                                 ?>
 
@@ -378,10 +392,9 @@ include "../../includes/header.php";
 
 
                             <div
-                                class="message-row
-                                <?= $message["SenderType"] === "Seller"
-                                    ? "buyer-message"
-                                    : "seller-message" ?>"
+                                class="message-row <?= $message["SenderType"] === "Seller"
+                                    ? "seller-message"
+                                    : "buyer-message" ?>"
                             >
 
                                 <div class="message-bubble">
@@ -395,12 +408,14 @@ include "../../includes/header.php";
                                     </p>
 
                                     <span class="message-time">
+
                                         <?= date(
                                             "d M, h:i A",
                                             strtotime(
                                                 $message["timeStamp"]
                                             )
                                         ) ?>
+
                                     </span>
 
                                 </div>
@@ -481,7 +496,6 @@ include "../../includes/header.php";
 
 
         </div>
-
 
     </div>
 

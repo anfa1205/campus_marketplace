@@ -1,83 +1,93 @@
-```php
 <?php
 
 require_once "../../config/database.php";
 require_once "../../includes/buyer_check.php";
 
-include "../../includes/header.php";
-
-$buyer_id = $_SESSION["user_id"];
+$buyerID = (int) $_SESSION["user_id"];
 
 $success =
-    isset($_GET["success"]);
+    isset($_GET["success"])
+        ? $_GET["success"]
+        : "";
 
 $error =
-    $_GET["error"] ?? "";
+    isset($_GET["error"])
+        ? $_GET["error"]
+        : "";
 
+$stmt = $pdo->prepare("
+    SELECT
 
-/*
-    Get all reservations made by
-    this buyer.
-
-    A buyer can have reservations
-    from many different sellers
-    and announcements.
-*/
-
-$stmt = $pdo->prepare(
-    "SELECT
         r.ReservationID,
         r.ReservationDate,
         r.ReservationTarget,
         r.Status,
 
+        p.ProductID,
         p.ProductName,
         p.Price,
 
+        s.sellerID,
+        s.Name AS SellerName,
+        s.bussinessName,
+
         c.quantity,
+        c.paidQuantity,
+        c.freeQuantity,
+        c.unitPrice,
+        c.promotionID,
+
+        pr.OfferType,
+        pr.DiscountValue,
+        pr.BuyQuantity,
+        pr.GetQuantity,
 
         sa.SellingDate,
         sa.SellingTime,
         sa.CampusLocation,
 
-        s.bussinessName
+        pu.PurchaseID,
 
-     FROM reservation r
+        f.FeedbackID
 
-     INNER JOIN contains c
-        ON r.ReservationID =
-           c.reservationID
+    FROM reservation r
 
-     INNER JOIN product p
-        ON c.productID =
-           p.ProductID
+    INNER JOIN contains c
+        ON r.ReservationID = c.reservationID
 
-     INNER JOIN sales_announcement sa
-        ON r.announcementID =
-           sa.AnnouncementId
+    INNER JOIN product p
+        ON c.productID = p.ProductID
 
-     INNER JOIN seller s
-        ON r.sellerID =
-           s.sellerID
+    INNER JOIN seller s
+        ON r.sellerID = s.sellerID
 
-     WHERE r.buyerID = ?
+    LEFT JOIN promotion pr
+        ON c.promotionID = pr.PromotionId
 
-     ORDER BY
-        r.ReservationDate DESC"
-);
+    LEFT JOIN sales_announcement sa
+        ON r.announcementID = sa.AnnouncementId
 
-$stmt->execute([
-    $buyer_id
-]);
+    LEFT JOIN purchase pu
+        ON pu.ReservationID = r.ReservationID
 
-$reservations =
-    $stmt->fetchAll();
+    LEFT JOIN feedback f
+        ON f.purchaseID = pu.PurchaseID
+       AND f.buyerID = r.buyerID
+
+    WHERE r.buyerID = ?
+
+    ORDER BY r.ReservationID DESC
+");
+
+$stmt->execute([$buyerID]);
+
+$reservations = $stmt->fetchAll();
+
+include "../../includes/header.php";
 
 ?>
 
-
 <div class="seller-dashboard">
-
 
     <div class="academic-decoration decoration-top-left">
         <span>✦</span>
@@ -105,7 +115,7 @@ $reservations =
     </div>
 
 
-    <?php if ($success): ?>
+    <?php if ($success !== ""): ?>
 
         <div
             class="form-error"
@@ -115,8 +125,7 @@ $reservations =
                 color:var(--purple);
             "
         >
-            Reservation submitted successfully.
-            Waiting for the seller to confirm.
+            <?= htmlspecialchars($success) ?>
         </div>
 
     <?php endif; ?>
@@ -133,7 +142,6 @@ $reservations =
 
     <?php if (count($reservations) === 0): ?>
 
-
         <div class="card">
 
             <h2>
@@ -147,7 +155,6 @@ $reservations =
             </p>
 
         </div>
-
 
     <?php else: ?>
 
@@ -177,7 +184,7 @@ $reservations =
                         </th>
 
                         <th>
-                            Date
+                            Price
                         </th>
 
                         <th>
@@ -202,6 +209,45 @@ $reservations =
 
                     <?php foreach ($reservations as $reservation): ?>
 
+                        <?php
+
+                        $quantity =
+                            (int)
+                            $reservation["quantity"];
+
+                        $paidQuantity =
+                            $reservation["paidQuantity"] !== null
+                                ? (int)
+                                    $reservation["paidQuantity"]
+                                : $quantity;
+
+                        $freeQuantity =
+                            $reservation["freeQuantity"] !== null
+                                ? (int)
+                                    $reservation["freeQuantity"]
+                                : 0;
+
+                        $unitPrice =
+                            $reservation["unitPrice"] !== null
+                                ? (float)
+                                    $reservation["unitPrice"]
+                                : (float)
+                                    $reservation["Price"];
+
+                        $totalAmount =
+                            $paidQuantity *
+                            $unitPrice;
+
+                        $statusClass =
+                            strtolower(
+                                str_replace(
+                                    " ",
+                                    "-",
+                                    $reservation["Status"]
+                                )
+                            );
+
+                        ?>
 
                         <tr>
 
@@ -240,10 +286,58 @@ $reservations =
 
                                 <br>
 
-                                ৳<?= number_format(
-                                    $reservation["Price"],
-                                    2
-                                ) ?>
+                                <?php if (
+                                    $reservation[
+                                        "promotionID"
+                                    ] !== null
+                                ): ?>
+
+                                    <?php if (
+                                        $reservation[
+                                            "OfferType"
+                                        ] === "Percentage"
+                                    ): ?>
+
+                                        <span style="
+                                            color:var(--purple);
+                                            font-weight:700;
+                                        ">
+                                            <?= number_format(
+                                                (float)
+                                                $reservation[
+                                                    "DiscountValue"
+                                                ],
+                                                0
+                                            ) ?>% OFF
+                                        </span>
+
+                                    <?php elseif (
+                                        $reservation[
+                                            "OfferType"
+                                        ] === "BuyXGetY"
+                                    ): ?>
+
+                                        <span style="
+                                            color:var(--purple);
+                                            font-weight:700;
+                                        ">
+                                            Buy
+                                            <?= (int)
+                                                $reservation[
+                                                    "BuyQuantity"
+                                                ] ?>
+
+                                            Get
+
+                                            <?= (int)
+                                                $reservation[
+                                                    "GetQuantity"
+                                                ] ?>
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                <?php endif; ?>
 
                             </td>
 
@@ -256,133 +350,193 @@ $reservations =
                                     ]
                                 ) ?>
 
-                            </td>
+                                <br>
 
-
-                            <td>
-
-                                <?= (int)
-                                    $reservation[
-                                        "quantity"
-                                    ] ?>
-
-                            </td>
-
-
-                            <td>
-
-                                <?= htmlspecialchars(
-                                    $reservation[
-                                        "SellingDate"
-                                    ]
-                                ) ?>
+                                <small>
+                                    <?= htmlspecialchars(
+                                        $reservation[
+                                            "SellerName"
+                                        ]
+                                    ) ?>
+                                </small>
 
                             </td>
 
 
                             <td>
-
 
                                 <?php if (
-                                    in_array(
-                                        $reservation["Status"],
-                                        [
-                                            "Accepted",
-                                            "Ready for Pickup",
-                                            "Completed"
-                                        ],
-                                        true
-                                    )
+                                    $freeQuantity > 0
                                 ): ?>
 
+                                    Paid:
+                                    <?= $paidQuantity ?>
+
+                                    <br>
+
+                                    Free:
+                                    <?= $freeQuantity ?>
+
+                                    <br>
 
                                     <strong>
-                                        <?= htmlspecialchars(
-                                            $reservation[
-                                                "SellingDate"
-                                            ]
-                                        ) ?>
+                                        Total:
+                                        <?= $quantity ?>
                                     </strong>
-
-                                    <br>
-
-                                    <?= htmlspecialchars(
-                                        $reservation[
-                                            "SellingTime"
-                                        ]
-                                    ) ?>
-
-                                    <br>
-
-                                    <?= htmlspecialchars(
-                                        $reservation[
-                                            "CampusLocation"
-                                        ]
-                                    ) ?>
-
-
-                                <?php elseif (
-                                    $reservation["Status"]
-                                    === "Rejected"
-                                ): ?>
-
-
-                                    <span>
-                                        Reservation rejected
-                                    </span>
-
 
                                 <?php else: ?>
 
-
-                                    <span>
-                                        Waiting for seller confirmation
-                                    </span>
-
+                                    <?= $quantity ?>
 
                                 <?php endif; ?>
-
 
                             </td>
 
 
                             <td>
 
+                                ৳<?= number_format(
+                                    $unitPrice,
+                                    2
+                                ) ?>
 
-                                <?php
+                                <br>
 
-                                $status_class =
-                                    strtolower(
-                                        str_replace(
-                                            " ",
-                                            "-",
-                                            $reservation["Status"]
+                                <small>
+                                    Total:
+                                    ৳<?= number_format(
+                                        $totalAmount,
+                                        2
+                                    ) ?>
+                                </small>
+
+                            </td>
+
+
+                            <td>
+
+                                <?php if (
+                                    !empty(
+                                        $reservation[
+                                            "SellingDate"
+                                        ]
+                                    )
+                                ): ?>
+
+                                    <?php if (
+                                        in_array(
+                                            $reservation["Status"],
+                                            [
+                                                "Accepted",
+                                                "Ready for Pickup",
+                                                "Completed"
+                                            ],
+                                            true
                                         )
-                                    );
+                                    ): ?>
 
-                                ?>
+                                        <strong>
+                                            <?= htmlspecialchars(
+                                                $reservation[
+                                                    "SellingDate"
+                                                ]
+                                            ) ?>
+                                        </strong>
 
+                                        <br>
+
+                                        <?= htmlspecialchars(
+                                            $reservation[
+                                                "SellingTime"
+                                            ]
+                                        ) ?>
+
+                                        <br>
+
+                                        <?= htmlspecialchars(
+                                            $reservation[
+                                                "CampusLocation"
+                                            ]
+                                        ) ?>
+
+                                    <?php elseif (
+                                        $reservation[
+                                            "Status"
+                                        ] === "Rejected"
+                                    ): ?>
+
+                                        Reservation rejected
+
+                                    <?php else: ?>
+
+                                        Waiting for seller confirmation
+
+                                    <?php endif; ?>
+
+                                <?php else: ?>
+
+                                    <span style="
+                                        color:var(--purple);
+                                        font-weight:600;
+                                    ">
+                                        Offer Reservation
+                                    </span>
+
+                                    <br>
+
+                                    <?php if (
+                                        in_array(
+                                            $reservation["Status"],
+                                            [
+                                                "Accepted",
+                                                "Ready for Pickup",
+                                                "Completed"
+                                            ],
+                                            true
+                                        )
+                                    ): ?>
+
+                                        Seller will provide
+                                        pickup details.
+
+                                    <?php elseif (
+                                        $reservation[
+                                            "Status"
+                                        ] === "Rejected"
+                                    ): ?>
+
+                                        Reservation rejected
+
+                                    <?php else: ?>
+
+                                        Waiting for seller confirmation
+
+                                    <?php endif; ?>
+
+                                <?php endif; ?>
+
+                            </td>
+
+
+                            <td>
 
                                 <span
-                                    class="status-badge <?= $status_class ?>"
+                                    class="status-badge <?= $statusClass ?>"
                                 >
                                     <?= htmlspecialchars(
                                         $reservation["Status"]
                                     ) ?>
                                 </span>
 
-
                             </td>
 
 
                             <td>
 
-
                                 <?php if (
                                     $reservation["Status"]
                                     === "Pending"
                                 ): ?>
-
 
                                     <a
                                         href="delete.php?id=<?= (int) $reservation["ReservationID"] ?>"
@@ -393,19 +547,53 @@ $reservations =
                                     </a>
 
 
-                                <?php else: ?>
+                                <?php elseif (
+                                    $reservation["Status"]
+                                    === "Completed"
+                                    &&
+                                    !empty(
+                                        $reservation["PurchaseID"]
+                                    )
+                                    &&
+                                    empty(
+                                        $reservation["FeedbackID"]
+                                    )
+                                ): ?>
 
+                                    <a
+                                        href="../feedback/rate.php?purchase_id=<?= (int) $reservation["PurchaseID"] ?>"
+                                        class="edit-button"
+                                    >
+                                        ★ Give Feedback
+                                    </a>
+
+
+                                <?php elseif (
+                                    $reservation["Status"]
+                                    === "Completed"
+                                    &&
+                                    !empty(
+                                        $reservation["FeedbackID"]
+                                    )
+                                ): ?>
+
+                                    <span style="
+                                        color:var(--purple);
+                                        font-weight:600;
+                                    ">
+                                        ★ Rated
+                                    </span>
+
+                                <?php else: ?>
 
                                     —
 
                                 <?php endif; ?>
 
-
                             </td>
 
 
                         </tr>
-
 
                     <?php endforeach; ?>
 
@@ -428,4 +616,3 @@ $reservations =
 include "../../includes/footer.php";
 
 ?>
-```
