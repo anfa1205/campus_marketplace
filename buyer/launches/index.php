@@ -3,239 +3,191 @@
 require_once "../../config/database.php";
 require_once "../../includes/buyer_check.php";
 
-$buyerID = $_SESSION["user_id"];
-
-$message = "";
-$error = "";
-
-if (isset($_GET["success"])) {
-    $message = $_GET["success"];
-}
-
-if (isset($_GET["error"])) {
-    $error = $_GET["error"];
-}
+$buyerID =
+    (int) $_SESSION["user_id"];
 
 
 /*
- * Get all upcoming product launches
- * from every seller.
+ * GET ALL UPCOMING PRODUCT LAUNCHES
+ *
+ * IMPORTANT:
+ * We use product_launch directly.
+ *
+ * We DO NOT require productID.
+ *
+ * This means a newly announced product
+ * can be seen by buyers before it is
+ * officially added to Product Management.
  */
 
 $stmt = $pdo->prepare("
     SELECT
         pl.*,
-        s.bussinessName,
-        s.Name AS SellerName
+
+        s.Name AS SellerName,
+        s.bussinessName
+
     FROM product_launch pl
+
     INNER JOIN seller s
         ON pl.sellerID = s.sellerID
+
     WHERE pl.Status = 'Upcoming'
-      AND EXISTS (
-          SELECT 1
-          FROM PRODUCT p
-          WHERE p.ProductID = pl.productID
-          AND p.SellerID = pl.sellerID
-      )
-    ORDER BY pl.LaunchDate ASC
+
+    ORDER BY
+        pl.LaunchDate ASC,
+        pl.LaunchTime ASC
 ");
+
 $stmt->execute();
 
-$launches = $stmt->fetchAll();
+$launches =
+    $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+include "../../includes/header.php";
 
 ?>
 
-<!DOCTYPE html>
-<html>
 
-<head>
+<div class="seller-dashboard">
 
-    <title>Product Launches</title>
 
-    <style>
+    <!-- DECORATIONS -->
 
-        * {
-            box-sizing: border-box;
-        }
+    <div class="academic-decoration decoration-top-left">
 
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f7f3fb;
-            color: #333;
-        }
+        <span>✦</span>
 
-        .container {
-            width: 92%;
-            max-width: 1200px;
-            margin: 40px auto;
-        }
+        <span>⌁</span>
 
-        .page-header {
-            margin-bottom: 30px;
-        }
+    </div>
 
-        .page-header h1 {
-            margin: 0 0 8px;
-            color: #5b3b82;
-        }
 
-        .page-header p {
-            margin: 0;
-            color: #777;
-        }
+    <div class="academic-decoration decoration-bottom-right">
 
-        .message {
-            background: #e7f6e7;
-            color: #287328;
-            padding: 13px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
+        <span>✦</span>
 
-        .error {
-            background: #fde8e8;
-            color: #a33;
-            padding: 13px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
+        <span>⌁</span>
 
-        .launch-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 22px;
-        }
+    </div>
 
-        .launch-card {
-            background: white;
-            border-radius: 14px;
-            padding: 24px;
-            box-shadow: 0 5px 18px rgba(91, 59, 130, 0.10);
-            border-top: 5px solid #76529a;
-        }
 
-        .launch-card h2 {
-            margin: 0 0 8px;
-            color: #5b3b82;
-        }
+    <!-- PAGE INTRO -->
 
-        .seller {
-            color: #76529a;
-            font-weight: bold;
-            margin-bottom: 18px;
-        }
+    <div class="dashboard-intro">
 
-        .description {
-            color: #555;
-            line-height: 1.6;
-            margin-bottom: 18px;
-        }
+        <p class="dashboard-label">
+            CAMPUS MARKETPLACE
+        </p>
 
-        .details {
-            line-height: 1.9;
-            margin-bottom: 18px;
-        }
 
-        .details strong {
-            color: #5b3b82;
-        }
+        <h1>
+            Product Launches
+        </h1>
 
-        .progress-title {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 7px;
-            font-weight: bold;
-            color: #5b3b82;
-        }
 
-        .progress {
-            width: 100%;
-            height: 11px;
-            background: #eee5f7;
-            border-radius: 10px;
-            overflow: hidden;
-        }
+        <div class="title-line"></div>
 
-        .progress-bar {
-            height: 100%;
-            background: #76529a;
-            border-radius: 10px;
-        }
 
-        .reserve-btn {
-            display: block;
-            width: 100%;
-            text-align: center;
-            background: #5b3b82;
-            color: white;
-            padding: 12px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: bold;
-            margin-top: 20px;
-        }
-
-        .reserve-btn:hover {
-            background: #76529a;
-        }
-
-        .empty {
-            background: white;
-            padding: 50px;
-            text-align: center;
-            border-radius: 14px;
-            color: #777;
-            box-shadow: 0 5px 18px rgba(91, 59, 130, 0.08);
-        }
-
-    </style>
-
-</head>
-
-<body>
-
-<div class="container">
-
-    <div class="page-header">
-
-        <h1>Product Launches</h1>
-
-        <p>
-            Explore upcoming products from campus sellers.
+        <p class="dashboard-description">
+            Discover new products announced by student sellers and reserve before launch.
         </p>
 
     </div>
 
 
-    <?php if ($message): ?>
+    <?php if (isset($_GET["success"])): ?>
 
-        <div class="message">
-            <?= htmlspecialchars($message) ?>
+        <div class="reservation-success">
+
+            <span class="success-icon">
+                ✓
+            </span>
+
+            <div>
+
+                <strong>
+                    Reservation Successful!
+                </strong>
+
+                <p>
+                    <?= htmlspecialchars(
+                        $_GET["success"]
+                    ) ?>
+                </p>
+
+            </div>
+
         </div>
 
     <?php endif; ?>
 
 
-    <?php if ($error): ?>
+    <?php if (isset($_GET["error"])): ?>
 
-        <div class="error">
-            <?= htmlspecialchars($error) ?>
+        <div class="reservation-error">
+
+            <span class="error-icon">
+                !
+            </span>
+
+            <div>
+
+                <strong>
+                    Reservation Failed
+                </strong>
+
+                <p>
+                    <?= htmlspecialchars(
+                        $_GET["error"]
+                    ) ?>
+                </p>
+
+            </div>
+
         </div>
 
     <?php endif; ?>
 
 
-    <?php if (count($launches) > 0): ?>
+    <?php if (empty($launches)): ?>
 
-        <div class="launch-grid">
+
+        <div class="dashboard-card empty-card">
+
+            <div class="card-icon">
+                🚀
+            </div>
+
+            <h3>
+                No Product Launches
+            </h3>
+
+            <p>
+                There are currently no new product launches available.
+            </p>
+
+        </div>
+
+
+    <?php else: ?>
+
+
+        <div class="announcement-list">
+
 
             <?php foreach ($launches as $launch): ?>
 
+
                 <?php
 
-                $current = (int)$launch["CurrentReservation"];
-                $required = (int)$launch["RequiredReservations"];
+                $current =
+                    (int) $launch["CurrentReservation"];
+
+                $required =
+                    (int) $launch["RequiredReservations"];
+
 
                 if ($required > 0) {
 
@@ -248,150 +200,382 @@ $launches = $stmt->fetchAll();
 
                 }
 
+
                 if ($percentage > 100) {
                     $percentage = 100;
                 }
 
+
+                $remaining =
+                    max(
+                        0,
+                        $required - $current
+                    );
+
+
+                $launchID =
+                    (int) $launch["LaunchID"];
+
+
+                /*
+                 * Check whether this buyer
+                 * already reserved this launch.
+                 */
+
+                $reserveStmt = $pdo->prepare("
+                    SELECT Quantity
+                    FROM reserves
+                    WHERE BuyerID = ?
+                    AND launchID = ?
+                ");
+
+                $reserveStmt->execute([
+                    $buyerID,
+                    $launchID
+                ]);
+
+                $myReservation =
+                    $reserveStmt->fetchColumn();
+
+
+                $myReservation =
+                    $myReservation !== false
+                    ? (int)$myReservation
+                    : 0;
+
                 ?>
 
-                <div class="launch-card">
 
-                    <h2>
-                        <?= htmlspecialchars($launch["ProductName"]) ?>
-                    </h2>
+                <div class="announcement-card">
 
 
-                    <div class="seller">
+                    <!-- HEADER -->
 
-                        <?= htmlspecialchars(
-                            $launch["bussinessName"]
-                        ) ?>
-
-                    </div>
-
-
-                    <div class="description">
-
-                        <?= nl2br(
-                            htmlspecialchars(
-                                $launch["Description"]
-                            )
-                        ) ?>
-
-                    </div>
-
-
-                    <div class="details">
+                    <div class="announcement-header">
 
                         <div>
-                            <strong>Category:</strong>
+
+                            <p class="dashboard-label">
+                                NEW PRODUCT LAUNCH
+                            </p>
+
+
+                            <h2>
+                                <?= htmlspecialchars(
+                                    $launch["ProductName"]
+                                ) ?>
+                            </h2>
+
+
+                            <p class="seller-name">
+
+                                Seller:
+                                <?= htmlspecialchars(
+                                    $launch["SellerName"]
+                                ) ?>
+
+                                <?php if (
+                                    !empty(
+                                        $launch["bussinessName"]
+                                    )
+                                ): ?>
+
+                                    -
+                                    <?= htmlspecialchars(
+                                        $launch["bussinessName"]
+                                    ) ?>
+
+                                <?php endif; ?>
+
+                            </p>
+
+                        </div>
+
+
+                        <span class="status-badge">
+
                             <?= htmlspecialchars(
-                                $launch["Category"]
+                                $launch["Status"]
                             ) ?>
-                        </div>
 
-
-                        <div>
-                            <strong>Price:</strong>
-                            ৳<?= number_format(
-                                $launch["Price"],
-                                2
-                            ) ?>
-                        </div>
-
-
-                        <div>
-                            <strong>Launch Date:</strong>
-                            <?= date(
-                                "d M Y",
-                                strtotime(
-                                    $launch["LaunchDate"]
-                                )
-                            ) ?>
-                        </div>
-
-
-                        <div>
-                            <strong>Launch Time:</strong>
-                            <?= date(
-                                "h:i A",
-                                strtotime(
-                                    $launch["LaunchTime"]
-                                )
-                            ) ?>
-                        </div>
-
-
-                        <div>
-                            <strong>Location:</strong>
-                            <?= htmlspecialchars(
-                                $launch["CampusLocation"]
-                            ) ?>
-                        </div>
-
-
-                        <div>
-                            <strong>Deadline:</strong>
-                            <?= date(
-                                "d M Y h:i A",
-                                strtotime(
-                                    $launch["Deadline"]
-                                )
-                            ) ?>
-                        </div>
-
-                    </div>
-
-
-                    <div class="progress-title">
-
-                        <span>
-                            Confirmed
-                        </span>
-
-                        <span>
-                            <?= $current ?> /
-                            <?= $required ?>
                         </span>
 
                     </div>
 
 
-                    <div class="progress">
+                    <!-- PRODUCT INFORMATION -->
 
-                        <div
-                            class="progress-bar"
-                            style="width: <?= $percentage ?>%;"
-                        ></div>
+                    <div class="announcement-info">
+
+
+                        <div class="info-box">
+
+                            <strong>
+                                📦 Product
+                            </strong>
+
+                            <p>
+                                <?= htmlspecialchars(
+                                    $launch["ProductName"]
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="info-box">
+
+                            <strong>
+                                🏷 Category
+                            </strong>
+
+                            <p>
+                                <?= htmlspecialchars(
+                                    $launch["Category"]
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="info-box">
+
+                            <strong>
+                                💰 Price
+                            </strong>
+
+                            <p>
+                                ৳<?= number_format(
+                                    (float)$launch["Price"],
+                                    2
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="info-box">
+
+                            <strong>
+                                📝 Description
+                            </strong>
+
+                            <p>
+                                <?= htmlspecialchars(
+                                    $launch["Description"]
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="info-box">
+
+                            <strong>
+                                📅 Launch Date
+                            </strong>
+
+                            <p>
+                                <?= date(
+                                    "d M Y",
+                                    strtotime(
+                                        $launch["LaunchDate"]
+                                    )
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="info-box">
+
+                            <strong>
+                                ⏰ Launch Time
+                            </strong>
+
+                            <p>
+                                <?= date(
+                                    "h:i A",
+                                    strtotime(
+                                        $launch["LaunchTime"]
+                                    )
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="info-box">
+
+                            <strong>
+                                ⏳ Reservation Deadline
+                            </strong>
+
+                            <p>
+                                <?= date(
+                                    "d M Y h:i A",
+                                    strtotime(
+                                        $launch["Deadline"]
+                                    )
+                                ) ?>
+                            </p>
+
+                        </div>
+
+
+                        <div class="info-box">
+
+                            <strong>
+                                📍 Campus Location
+                            </strong>
+
+                            <p>
+                                <?= htmlspecialchars(
+                                    $launch["CampusLocation"]
+                                ) ?>
+                            </p>
+
+                        </div>
+
 
                     </div>
 
 
-                    <a
-                        href="reserve.php?id=<?= $launch["LaunchID"] ?>"
-                        class="reserve-btn"
-                    >
-                        Confirm Product
-                    </a>
+                    <!-- RESERVATION PROGRESS -->
+
+                    <div style="
+                        margin-top:25px;
+                        padding:20px;
+                        background:#f7f3fb;
+                        border-radius:12px;
+                    ">
+
+
+                        <div style="
+                            display:flex;
+                            justify-content:space-between;
+                            color:#5b3b82;
+                            font-weight:bold;
+                            margin-bottom:8px;
+                        ">
+
+                            <span>
+                                Reservation Progress
+                            </span>
+
+                            <span>
+                                <?= $current ?>
+                                /
+                                <?= $required ?>
+                            </span>
+
+                        </div>
+
+
+                        <div style="
+                            width:100%;
+                            height:12px;
+                            background:#eee5f7;
+                            border-radius:10px;
+                            overflow:hidden;
+                        ">
+
+                            <div style="
+                                width:<?= $percentage ?>%;
+                                height:100%;
+                                background:#76529a;
+                                border-radius:10px;
+                            "></div>
+
+                        </div>
+
+
+                        <p style="
+                            color:#666;
+                            margin-bottom:0;
+                        ">
+
+                            <?php if ($remaining > 0): ?>
+
+                                <?= $remaining ?>
+                                more reservation(s)
+                                needed to launch.
+
+                            <?php else: ?>
+
+                                Reservation target reached.
+                                Waiting for seller to launch.
+
+                            <?php endif; ?>
+
+                        </p>
+
+                    </div>
+
+
+                    <!-- BUYER RESERVATION -->
+
+                    <?php if ($myReservation > 0): ?>
+
+                        <div style="
+                            margin-top:20px;
+                            background:#eee5f7;
+                            color:#5b3b82;
+                            padding:14px;
+                            border-radius:10px;
+                            font-weight:bold;
+                        ">
+
+                            You have reserved
+                            <?= $myReservation ?>
+                            item(s).
+
+                        </div>
+
+                    <?php endif; ?>
+
+
+                    <?php if ($remaining > 0): ?>
+
+                        <div style="margin-top:20px;">
+
+                            <a
+                                href="reserve.php?id=<?= $launchID ?>"
+                                class="btn btn-primary"
+                            >
+                                Reserve Product
+                            </a>
+
+                        </div>
+
+                    <?php else: ?>
+
+                        <div style="
+                            margin-top:20px;
+                            color:#287328;
+                            font-weight:bold;
+                        ">
+
+                            ✓ Reservation limit reached
+
+                        </div>
+
+                    <?php endif; ?>
+
 
                 </div>
 
+
             <?php endforeach; ?>
 
-        </div>
-
-    <?php else: ?>
-
-        <div class="empty">
-
-            No upcoming product launches available.
 
         </div>
+
 
     <?php endif; ?>
 
+
 </div>
 
-</body>
 
-</html>
+<?php include "../../includes/footer.php"; ?>

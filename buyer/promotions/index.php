@@ -1,21 +1,10 @@
+```php
 <?php
 
 require_once "../../config/database.php";
 require_once "../../includes/buyer_check.php";
 require_once "../../includes/offer_helper.php";
 
-
-/*
- * IMPORTANT:
- *
- * Use CURRENT database time.
- *
- * An offer is Active when:
- *
- * StartDate <= NOW()
- * AND
- * EndDate >= NOW()
- */
 
 $stmt = $pdo->query("
     SELECT
@@ -26,6 +15,7 @@ $stmt = $pdo->query("
         pr.GetQuantity,
         pr.StartDate,
         pr.EndDate,
+        pr.PickupLocation,
 
         s.sellerID,
         s.Name AS SellerName,
@@ -121,7 +111,6 @@ include "../../includes/header.php";
 
     <?php if (empty($offers)): ?>
 
-
         <div class="offer-empty">
 
             <div class="offer-empty-icon">
@@ -137,7 +126,6 @@ include "../../includes/header.php";
             </p>
 
         </div>
-
 
     <?php else: ?>
 
@@ -312,6 +300,34 @@ include "../../includes/header.php";
 
                         </div>
 
+
+                    </div>
+
+
+                    <!-- OFFER PICKUP LOCATION -->
+
+                    <div style="
+                        margin:15px 0;
+                        padding:12px 15px;
+                        background:#faf7fd;
+                        border:1px solid #eadff3;
+                        border-radius:10px;
+                    ">
+
+                        <strong style="
+                            color:var(--purple);
+                        ">
+                            📍 Pickup Location
+                        </strong>
+
+                        <br>
+
+                        <span>
+                            <?= htmlspecialchars(
+                                $offer["PickupLocation"]
+                                ?? "Not provided"
+                            ) ?>
+                        </span>
 
                     </div>
 
@@ -533,3 +549,4 @@ include "../../includes/header.php";
 include "../../includes/footer.php";
 
 ?>
+```

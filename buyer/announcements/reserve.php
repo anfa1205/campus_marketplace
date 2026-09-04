@@ -306,7 +306,6 @@ try {
             announcementID,
             sellerID
         )
-
         VALUES
         (
             NOW(),
@@ -317,15 +316,12 @@ try {
             ?
         )
     ");
-
     $stmt->execute([
         $buyer["Phone"],
         $buyerID,
         $announcementID,
         $sellerID
     ]);
-
-
     $reservationID =
         (int) $pdo->lastInsertId();
 

@@ -3,9 +3,6 @@
 require_once "../../config/database.php";
 require_once "../../includes/seller_check.php";
 
-include "../../includes/header.php";
-
-
 $sellerID = (int) $_SESSION["user_id"];
 
 $launchID =
@@ -14,12 +11,12 @@ $launchID =
     : 0;
 
 
-$stmt = $pdo->prepare(
-    "SELECT *
-     FROM product_launch
-     WHERE LaunchID = ?
-     AND sellerID = ?"
-);
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM product_launch
+    WHERE LaunchID = ?
+    AND sellerID = ?
+");
 
 $stmt->execute([
     $launchID,
@@ -47,6 +44,18 @@ $error = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
+    $productName =
+        trim($_POST["productName"] ?? "");
+
+    $description =
+        trim($_POST["description"] ?? "");
+
+    $category =
+        trim($_POST["category"] ?? "");
+
+    $price =
+        trim($_POST["price"] ?? "");
+
     $required =
         (int) ($_POST["requiredReservations"] ?? 0);
 
@@ -63,7 +72,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         trim($_POST["campusLocation"] ?? "");
 
 
+    $currentReservation =
+        (int) $launch["CurrentReservation"];
+
+
     if (
+        $productName === "" ||
+        $description === "" ||
+        $category === "" ||
+        $price === "" ||
         $required <= 0 ||
         $launchDate === "" ||
         $launchTime === "" ||
@@ -74,51 +91,90 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $error =
             "Please fill in all fields correctly.";
 
-    } else {
+    }
 
+    elseif (
+        !is_numeric($price) ||
+        (float)$price < 0
+    ) {
+
+        $error =
+            "Please enter a valid price.";
+
+    }
+
+    elseif (
+        $required < $currentReservation
+    ) {
+
+        $error =
+            "Required reservation quantity cannot be smaller than the current reservations.";
+
+    }
+
+    else {
 
         $launchDateTime =
-            $launchDate . " " . $launchTime;
+            $launchDate . " " . $launchTime . ":00";
 
 
         if (
-            strtotime($deadline)
-            <= strtotime(date("Y-m-d H:i:s"))
+            strtotime($deadline) <= time()
         ) {
 
             $error =
                 "Reservation deadline must be in the future.";
 
-        } elseif (
-            strtotime($launchDateTime)
-            <= strtotime(date("Y-m-d H:i:s"))
+        }
+
+        elseif (
+            strtotime($launchDateTime) <= time()
         ) {
 
             $error =
-                "Launch date must be in the future.";
+                "Launch date and time must be in the future.";
 
-        } else {
+        }
 
+        elseif (
+            strtotime($deadline)
+            >= strtotime($launchDateTime)
+        ) {
 
-            $stmt = $pdo->prepare(
-                "UPDATE product_launch
+            $error =
+                "Reservation deadline must be before the launch date and time.";
 
-                 SET
+        }
+
+        else {
+
+            $stmt = $pdo->prepare("
+                UPDATE product_launch
+
+                SET
+                    ProductName = ?,
+                    Description = ?,
+                    Category = ?,
+                    Price = ?,
                     RequiredReservations = ?,
                     LaunchDate = ?,
                     LaunchTime = ?,
                     Deadline = ?,
                     CampusLocation = ?
 
-                 WHERE LaunchID = ?
-                 AND sellerID = ?"
-            );
+                WHERE LaunchID = ?
+                AND sellerID = ?
+            ");
 
 
             $stmt->execute([
+                $productName,
+                $description,
+                $category,
+                $price,
                 $required,
                 $launchDateTime,
-                $launchTime,
+                $launchTime . ":00",
                 $deadline,
                 $location,
                 $launchID,
@@ -145,19 +201,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 $launchDateValue =
     date(
         "Y-m-d",
-        strtotime($launch["LaunchDate"])
+        strtotime(
+            $launch["LaunchDate"]
+        )
     );
 
 
 $launchTimeValue =
-    $launch["LaunchTime"];
+    date(
+        "H:i",
+        strtotime(
+            $launch["LaunchTime"]
+        )
+    );
 
 
 $deadlineValue =
     date(
         "Y-m-d\TH:i",
-        strtotime($launch["Deadline"])
+        strtotime(
+            $launch["Deadline"]
+        )
     );
+
+
+include "../../includes/header.php";
 
 ?>
 
@@ -208,13 +276,25 @@ $deadlineValue =
     margin-bottom: 8px;
 }
 
-.form-group input {
+.form-group input,
+.form-group textarea {
     width: 100%;
     box-sizing: border-box;
     padding: 13px 14px;
     border: 1px solid #ddd2e4;
     border-radius: 10px;
     font-size: 15px;
+    font-family: Arial, sans-serif;
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
 }
 
 .form-error {
@@ -223,12 +303,6 @@ $deadlineValue =
     padding: 14px 18px;
     border-radius: 10px;
     margin-bottom: 20px;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
 }
 
 .form-actions {
@@ -301,20 +375,92 @@ $deadlineValue =
         <form method="POST">
 
 
+            <!-- PRODUCT NAME -->
+
             <div class="form-group">
 
                 <label>
-                    Product
+                    Product Name
                 </label>
 
                 <input
                     type="text"
-                    value="<?= htmlspecialchars($launch["productID"]) ?>"
-                    disabled
+                    name="productName"
+                    value="<?= htmlspecialchars(
+                        $_POST["productName"]
+                        ?? $launch["ProductName"]
+                    ) ?>"
+                    required
                 >
 
             </div>
 
+
+            <!-- DESCRIPTION -->
+
+            <div class="form-group">
+
+                <label>
+                    Description
+                </label>
+
+                <textarea
+                    name="description"
+                    rows="4"
+                    required
+                ><?= htmlspecialchars(
+                    $_POST["description"]
+                    ?? $launch["Description"]
+                ) ?></textarea>
+
+            </div>
+
+
+            <!-- CATEGORY -->
+
+            <div class="form-group">
+
+                <label>
+                    Category
+                </label>
+
+                <input
+                    type="text"
+                    name="category"
+                    value="<?= htmlspecialchars(
+                        $_POST["category"]
+                        ?? $launch["Category"]
+                    ) ?>"
+                    required
+                >
+
+            </div>
+
+
+            <!-- PRICE -->
+
+            <div class="form-group">
+
+                <label>
+                    Price
+                </label>
+
+                <input
+                    type="number"
+                    name="price"
+                    min="0"
+                    step="0.01"
+                    value="<?= htmlspecialchars(
+                        $_POST["price"]
+                        ?? $launch["Price"]
+                    ) ?>"
+                    required
+                >
+
+            </div>
+
+
+            <!-- RESERVATION QUANTITY -->
 
             <div class="form-group">
 
@@ -325,15 +471,18 @@ $deadlineValue =
                 <input
                     type="number"
                     name="requiredReservations"
-                    min="1"
+                    min="<?= max(1, $currentReservation) ?>"
                     value="<?= htmlspecialchars(
-                        $launch["RequiredReservations"]
+                        $_POST["requiredReservations"]
+                        ?? $launch["RequiredReservations"]
                     ) ?>"
                     required
                 >
 
             </div>
 
+
+            <!-- DATE + TIME -->
 
             <div class="form-row">
 
@@ -347,7 +496,10 @@ $deadlineValue =
                     <input
                         type="date"
                         name="launchDate"
-                        value="<?= $launchDateValue ?>"
+                        value="<?= htmlspecialchars(
+                            $_POST["launchDate"]
+                            ?? $launchDateValue
+                        ) ?>"
                         required
                     >
 
@@ -363,7 +515,10 @@ $deadlineValue =
                     <input
                         type="time"
                         name="launchTime"
-                        value="<?= $launchTimeValue ?>"
+                        value="<?= htmlspecialchars(
+                            $_POST["launchTime"]
+                            ?? $launchTimeValue
+                        ) ?>"
                         required
                     >
 
@@ -372,6 +527,8 @@ $deadlineValue =
 
             </div>
 
+
+            <!-- DEADLINE -->
 
             <div class="form-group">
 
@@ -382,12 +539,17 @@ $deadlineValue =
                 <input
                     type="datetime-local"
                     name="deadline"
-                    value="<?= $deadlineValue ?>"
+                    value="<?= htmlspecialchars(
+                        $_POST["deadline"]
+                        ?? $deadlineValue
+                    ) ?>"
                     required
                 >
 
             </div>
 
+
+            <!-- LOCATION -->
 
             <div class="form-group">
 
@@ -399,7 +561,8 @@ $deadlineValue =
                     type="text"
                     name="campusLocation"
                     value="<?= htmlspecialchars(
-                        $launch["CampusLocation"]
+                        $_POST["campusLocation"]
+                        ?? $launch["CampusLocation"]
                     ) ?>"
                     required
                 >
@@ -415,6 +578,7 @@ $deadlineValue =
                 >
                     Save Changes
                 </button>
+
 
                 <a
                     href="index.php"
@@ -435,8 +599,4 @@ $deadlineValue =
 </div>
 
 
-<?php
-
-include "../../includes/footer.php";
-
-?>
+<?php include "../../includes/footer.php"; ?>

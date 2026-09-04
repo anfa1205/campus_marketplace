@@ -1,3 +1,4 @@
+```php
 <?php
 
 require_once "../../config/database.php";
@@ -49,47 +50,41 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $endDate =
         trim($_POST["end_date"] ?? "");
 
+    $pickupLocation =
+        trim($_POST["pickup_location"] ?? "");
+
     $selectedProducts =
         $_POST["products"] ?? [];
 
 
     /* VALIDATION */
-
-    if (
-        !in_array(
-            $offerType,
-            ["Percentage", "BuyXGetY"],
-            true
-        )
+    if (!in_array(  $offerType, ["Percentage", "BuyXGetY"],true)
     ) {
-
-        $error =
-            "Please select a valid offer type.";
-
+        $error ="Please select a valid offer type.";
     } elseif (
         empty($startDate) ||
         empty($endDate)
     ) {
-
         $error =
             "Please enter both start and end date.";
-
     } elseif (
         strtotime($endDate)
         <=
         strtotime($startDate)
     ) {
-
         $error =
             "End date must be after start date.";
 
     } elseif (
+        empty($pickupLocation)
+    ) {
+        $error =
+            "Please enter the pickup location.";
+    } elseif (
         empty($selectedProducts)
     ) {
-
         $error =
             "Please select at least one product.";
-
     } elseif (
         $offerType === "Percentage" &&
         (
@@ -97,27 +92,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $discountValue > 100
         )
     ) {
+        $error =  "Discount must be between 1% and 100%.";
 
-        $error =
-            "Discount must be between 1% and 100%.";
-
-    } elseif (
-        $offerType === "BuyXGetY" &&
-        (
-            $buyQuantity <= 0 ||
-            $getQuantity <= 0
-        )
+    } elseif ( offerType === "BuyXGetY" &&($buyQuantity <= 0 ||$getQuantity <= 0)
     ) {
-
-        $error =
-            "Buy and Get quantities must be greater than zero.";
-
+        $error = "Buy and Get quantities must be greater than zero.";
     } else {
-
         try {
-
             $pdo->beginTransaction();
-
 
             /*
              * Percentage:
@@ -156,11 +138,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     GetQuantity,
                     StartDate,
                     EndDate,
+                    PickupLocation,
                     SellerId
                 )
 
                 VALUES
                 (
+                    ?,
                     ?,
                     ?,
                     ?,
@@ -185,6 +169,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $startDate,
 
                 $endDate,
+
+                $pickupLocation,
 
                 $sellerID
 
@@ -361,6 +347,7 @@ include "../../includes/header.php";
                 <input
                     type="number"
                     name="discount_value"
+                    id="discount_value"
                     min="1"
                     max="100"
                     step="0.01"
@@ -390,6 +377,7 @@ include "../../includes/header.php";
                         <input
                             type="number"
                             name="buy_quantity"
+                            id="buy_quantity"
                             min="1"
                             placeholder="Example: 2"
                         >
@@ -406,6 +394,7 @@ include "../../includes/header.php";
                         <input
                             type="number"
                             name="get_quantity"
+                            id="get_quantity"
                             min="1"
                             placeholder="Example: 1"
                         >
@@ -452,6 +441,29 @@ include "../../includes/header.php";
                     >
 
                 </div>
+
+            </div>
+
+
+            <!-- PICKUP LOCATION -->
+
+            <div class="offer-form-group">
+
+                <label>
+                    Pickup Location / Place
+                </label>
+
+                <input
+                    type="text"
+                    name="pickup_location"
+                    maxlength="255"
+                    placeholder="Example: BRAC University Cafeteria"
+                    required
+                >
+
+                <small>
+                    Enter the exact campus place where buyers can collect their offer.
+                </small>
 
             </div>
 
@@ -517,23 +529,12 @@ include "../../includes/header.php";
             </div>
 
 
-            <div class="offer-form-buttons">
-
-                <button
-                    type="submit"
-                    class="primary-form-button"
-                >
-                    Create Offer
-                </button>
-
-                <a
-                    href="index.php"
-                    class="cancel-button"
-                >
-                    Cancel
-                </a>
-
-            </div>
+            <button
+                type="submit"
+                class="btn"
+            >
+                Create Offer
+            </button>
 
 
         </form>
@@ -554,32 +555,63 @@ const percentageBox =
 const buyGetBox =
     document.getElementById("buy_get_box");
 
+const discountInput =
+    document.getElementById("discount_value");
+
+const buyInput =
+    document.getElementById("buy_quantity");
+
+const getInput =
+    document.getElementById("get_quantity");
+
 
 function updateOfferFields() {
 
-    percentageBox.style.display = "none";
-    buyGetBox.style.display = "none";
+    if (offerType.value === "Percentage") {
 
+        percentageBox.style.display = "block";
 
-    if (
-        offerType.value === "Percentage"
-    ) {
+        buyGetBox.style.display = "none";
 
-        percentageBox.style.display =
-            "block";
+        discountInput.required = true;
+        discountInput.disabled = false;
 
+        buyInput.required = false;
+        buyInput.disabled = true;
+
+        getInput.required = false;
+        getInput.disabled = true;
+
+    } else if (offerType.value === "BuyXGetY") {
+
+        percentageBox.style.display = "none";
+
+        buyGetBox.style.display = "block";
+
+        discountInput.required = false;
+        discountInput.disabled = true;
+
+        buyInput.required = true;
+        buyInput.disabled = false;
+
+        getInput.required = true;
+        getInput.disabled = false;
+
+    } else {
+
+        percentageBox.style.display = "none";
+
+        buyGetBox.style.display = "none";
+
+        discountInput.required = false;
+        discountInput.disabled = true;
+
+        buyInput.required = false;
+        buyInput.disabled = true;
+
+        getInput.required = false;
+        getInput.disabled = true;
     }
-
-
-    if (
-        offerType.value === "BuyXGetY"
-    ) {
-
-        buyGetBox.style.display =
-            "block";
-
-    }
-
 }
 
 
@@ -599,3 +631,4 @@ updateOfferFields();
 include "../../includes/footer.php";
 
 ?>
+```

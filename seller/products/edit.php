@@ -179,13 +179,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     else {
 
-
         /*
             =========================
             UPDATE PRODUCT
             =========================
         */
-
         $stmt = $pdo->prepare(
             "UPDATE PRODUCT
              SET
@@ -201,23 +199,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
         $stmt->execute([
-
             $product_name,
-
             $category,
-
             $description,
-
             $price,
-
             $stock,
-
             $status,
-
             $product_id,
-
             $seller_id
-
         ]);
 
 

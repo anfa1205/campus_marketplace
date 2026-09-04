@@ -51,26 +51,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             )
         ) {
 
-            $_SESSION["user_id"] =
-                $user["sellerID"];
-
-            $_SESSION["name"] =
-                $user["Name"];
-
-            $_SESSION["role"] =
-                "seller";
+            $_SESSION["user_id"] =$user["sellerID"];
+            $_SESSION["name"] =$user["Name"];
+            $_SESSION["role"] ="seller";
 
 
-            header(
-                "Location: ../seller/dashboard.php"
-            );
+            header("Location: ../seller/dashboard.php");
 
             exit;
 
         } else {
 
-            $error =
-                "Invalid email or password.";
+            $error ="Invalid email or password.";
 
         }
 

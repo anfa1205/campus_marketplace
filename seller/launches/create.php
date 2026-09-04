@@ -3,60 +3,131 @@
 require_once "../../config/database.php";
 require_once "../../includes/seller_check.php";
 
+$sellerID = (int) $_SESSION["user_id"];
+
 $error = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $sellerID = $_SESSION["user_id"];
+    $productName =
+        trim($_POST["productName"] ?? "");
 
-    $productName = trim($_POST["ProductName"] ?? "");
-    $description = trim($_POST["Description"] ?? "");
-    $category = trim($_POST["Category"] ?? "");
-    $price = $_POST["Price"] ?? "";
-    $required = $_POST["RequiredReservations"] ?? "";
-    $launchDate = $_POST["LaunchDate"] ?? "";
-    $launchTime = $_POST["LaunchTime"] ?? "";
-    $deadline = $_POST["Deadline"] ?? "";
-    $location = trim($_POST["CampusLocation"] ?? "");
+    $description =
+        trim($_POST["description"] ?? "");
 
+    $category =
+        trim($_POST["category"] ?? "");
+
+    $price =
+        trim($_POST["price"] ?? "");
+
+    $launchDate =
+        trim($_POST["launchDate"] ?? "");
+
+    $launchTime =
+        trim($_POST["launchTime"] ?? "");
+
+    $deadline =
+        trim($_POST["deadline"] ?? "");
+
+    $campusLocation =
+        trim($_POST["campusLocation"] ?? "");
+
+    $requiredReservations =
+        (int) ($_POST["requiredReservations"] ?? 0);
+
+
+    /*
+     * VALIDATION
+     */
 
     if (
         $productName === "" ||
+        $description === "" ||
         $category === "" ||
         $price === "" ||
-        $required === "" ||
         $launchDate === "" ||
         $launchTime === "" ||
-        $deadline === ""
+        $deadline === "" ||
+        $campusLocation === "" ||
+        $requiredReservations <= 0
     ) {
 
-        $error = "Please fill in all required fields.";
+        $error =
+            "Please fill in all required fields.";
 
-    } elseif (!is_numeric($price) || $price < 0) {
+    } elseif (
+        !is_numeric($price) ||
+        (float)$price < 0
+    ) {
 
-        $error = "Please enter a valid price.";
-
-    } elseif (!filter_var($required, FILTER_VALIDATE_INT) || $required < 1) {
-
-        $error = "Required reservation quantity must be at least 1.";
+        $error =
+            "Please enter a valid price.";
 
     } else {
 
-        $launchDateTime = $launchDate . " " . $launchTime . ":00";
+        /*
+         * Create launch datetime
+         */
 
-        $deadlineDateTime = date(
-            "Y-m-d H:i:s",
+        $launchDateTime =
+            $launchDate . " " . $launchTime . ":00";
+
+
+        /*
+         * Check launch date
+         */
+
+        if (
+            strtotime($launchDateTime)
+            <= time()
+        ) {
+
+            $error =
+                "Launch date and time must be in the future.";
+
+        }
+
+        /*
+         * Check reservation deadline
+         */
+
+        elseif (
             strtotime($deadline)
-        );
+            <= time()
+        ) {
 
+            $error =
+                "Reservation deadline must be in the future.";
 
-        if (strtotime($deadlineDateTime) > strtotime($launchDateTime)) {
+        }
 
-            $error = "Reservation deadline cannot be after the launch date and time.";
+        /*
+         * Deadline must be before launch
+         */
 
-        } else {
+        elseif (
+            strtotime($deadline)
+            >= strtotime($launchDateTime)
+        ) {
+
+            $error =
+                "Reservation deadline must be before the launch date and time.";
+
+        }
+
+        else {
 
             try {
+
+                /*
+                 * Create a NEW product launch.
+                 *
+                 * productID remains NULL because
+                 * the actual product will only be
+                 * created after the reservation target
+                 * is reached and seller launches it.
+                 */
 
                 $stmt = $pdo->prepare("
                     INSERT INTO product_launch
@@ -90,23 +161,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $price,
                     $launchDateTime,
                     $launchTime . ":00",
-                    $location,
-                    $deadlineDateTime,
-                    $required,
+                    $campusLocation,
+                    $deadline,
+                    $requiredReservations,
                     $sellerID
                 ]);
 
 
                 header(
                     "Location: index.php?success=" .
-                    urlencode("Product launch created successfully.")
+                    urlencode(
+                        "Product launch created successfully."
+                    )
                 );
 
                 exit;
 
+
             } catch (PDOException $e) {
 
-                $error = "Failed to create product launch.";
+                $error =
+                    "Unable to create product launch.";
 
             }
 
@@ -116,128 +191,156 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 }
 
+include "../../includes/header.php";
+
 ?>
 
-<!DOCTYPE html>
-<html>
+<style>
 
-<head>
+.launch-form-page {
+    max-width: 850px;
+    margin: 0 auto;
+}
 
-    <title>Create Product Launch</title>
+.launch-form-header {
+    margin-bottom: 30px;
+}
 
-    <style>
+.launch-form-label {
+    color: #8b5aa8;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
 
-        * {
-            box-sizing: border-box;
-        }
+.launch-form-header h1 {
+    color: #4a315d;
+    margin: 7px 0;
+}
 
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f7f3fb;
-            color: #333;
-        }
+.launch-form-header p {
+    color: #777;
+}
 
-        .container {
-            width: 90%;
-            max-width: 850px;
-            margin: 40px auto;
-        }
+.launch-form-card {
+    background: white;
+    padding: 35px;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(83,52,103,.10);
+    border: 1px solid #eee5f3;
+}
 
-        .card {
-            background: white;
-            padding: 30px;
-            border-radius: 14px;
-            box-shadow: 0 5px 18px rgba(91, 59, 130, 0.10);
-        }
+.form-group {
+    margin-bottom: 22px;
+}
 
-        h1 {
-            color: #5b3b82;
-            margin-top: 0;
-        }
+.form-group label {
+    display: block;
+    color: #4a315d;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
 
-        .form-group {
-            margin-bottom: 18px;
-        }
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 13px 14px;
+    border: 1px solid #ddd2e4;
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: Arial, sans-serif;
+}
 
-        label {
-            display: block;
-            margin-bottom: 7px;
-            font-weight: bold;
-            color: #5b3b82;
-        }
+.form-group textarea {
+    resize: vertical;
+}
 
-        input,
-        textarea,
-        select {
-            width: 100%;
-            padding: 11px;
-            border: 1px solid #d9cde6;
-            border-radius: 7px;
-            font-size: 14px;
-        }
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #7b4f96;
+}
 
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
+.form-error {
+    background: #f8e8ea;
+    color: #9b4d59;
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
 
-        input:focus,
-        textarea:focus,
-        select:focus {
-            outline: none;
-            border-color: #76529a;
-        }
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
 
-        .error {
-            background: #fde8e8;
-            color: #a33;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
+.form-actions {
+    display: flex;
+    gap: 12px;
+}
 
-        .buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 25px;
-        }
+.form-submit {
+    border: none;
+    background: #7b4f96;
+    color: white;
+    padding: 13px 23px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
 
-        .btn {
-            padding: 11px 18px;
-            border-radius: 7px;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-        }
+.form-submit:hover {
+    background: #65407d;
+}
 
-        .save {
-            background: #5b3b82;
-            color: white;
-        }
+.form-cancel {
+    background: #eee5f5;
+    color: #70478a;
+    padding: 13px 23px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+}
 
-        .cancel {
-            background: #eee5f7;
-            color: #5b3b82;
-        }
+@media(max-width:650px) {
 
-    </style>
+    .form-row {
+        grid-template-columns: 1fr;
+    }
 
-</head>
+}
 
-<body>
-
-<div class="container">
-
-    <div class="card">
-
-        <h1>Create Product Launch</h1>
+</style>
 
 
-        <?php if ($error): ?>
+<div class="launch-form-page">
 
-            <div class="error">
+    <div class="launch-form-header">
+
+        <span class="launch-form-label">
+            SELLER AREA
+        </span>
+
+        <h1>
+            Create New Product Launch
+        </h1>
+
+        <p>
+            Announce a new product and collect reservations before launching it.
+        </p>
+
+    </div>
+
+
+    <div class="launch-form-card">
+
+        <?php if ($error !== ""): ?>
+
+            <div class="form-error">
                 <?= htmlspecialchars($error) ?>
             </div>
 
@@ -246,146 +349,216 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         <form method="POST">
 
+
+            <!-- PRODUCT NAME -->
+
             <div class="form-group">
 
-                <label>Product Name *</label>
+                <label>
+                    Product Name
+                </label>
 
                 <input
                     type="text"
-                    name="ProductName"
+                    name="productName"
+                    placeholder="Enter new product name"
+                    value="<?= htmlspecialchars(
+                        $_POST["productName"] ?? ""
+                    ) ?>"
                     required
-                    value="<?= htmlspecialchars($_POST["ProductName"] ?? "") ?>"
                 >
 
             </div>
 
 
+            <!-- DESCRIPTION -->
+
             <div class="form-group">
 
-                <label>Description</label>
+                <label>
+                    Description
+                </label>
 
-                <textarea name="Description"><?= htmlspecialchars($_POST["Description"] ?? "") ?></textarea>
+                <textarea
+                    name="description"
+                    rows="4"
+                    placeholder="Enter product description"
+                    required
+                ><?= htmlspecialchars(
+                    $_POST["description"] ?? ""
+                ) ?></textarea>
 
             </div>
 
 
+            <!-- CATEGORY -->
+
             <div class="form-group">
 
-                <label>Category *</label>
+                <label>
+                    Category
+                </label>
 
                 <input
                     type="text"
-                    name="Category"
+                    name="category"
+                    placeholder="Example: Drink, Food, Bakery"
+                    value="<?= htmlspecialchars(
+                        $_POST["category"] ?? ""
+                    ) ?>"
                     required
-                    value="<?= htmlspecialchars($_POST["Category"] ?? "") ?>"
                 >
 
             </div>
 
 
+            <!-- PRICE -->
+
             <div class="form-group">
 
-                <label>Price *</label>
+                <label>
+                    Price
+                </label>
 
                 <input
                     type="number"
-                    name="Price"
-                    step="0.01"
+                    name="price"
                     min="0"
+                    step="0.01"
+                    placeholder="Enter price"
+                    value="<?= htmlspecialchars(
+                        $_POST["price"] ?? ""
+                    ) ?>"
                     required
-                    value="<?= htmlspecialchars($_POST["Price"] ?? "") ?>"
                 >
 
             </div>
 
 
-            <div class="form-group">
+            <!-- LAUNCH DATE + TIME -->
 
-                <label>Required Reservation Quantity *</label>
+            <div class="form-row">
 
-                <input
-                    type="number"
-                    name="RequiredReservations"
-                    min="1"
-                    required
-                    value="<?= htmlspecialchars($_POST["RequiredReservations"] ?? "") ?>"
-                >
+                <div class="form-group">
+
+                    <label>
+                        Launch Date
+                    </label>
+
+                    <input
+                        type="date"
+                        name="launchDate"
+                        value="<?= htmlspecialchars(
+                            $_POST["launchDate"] ?? ""
+                        ) ?>"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Launch Time
+                    </label>
+
+                    <input
+                        type="time"
+                        name="launchTime"
+                        value="<?= htmlspecialchars(
+                            $_POST["launchTime"] ?? ""
+                        ) ?>"
+                        required
+                    >
+
+                </div>
 
             </div>
 
 
-            <div class="form-group">
-
-                <label>Launch Date *</label>
-
-                <input
-                    type="date"
-                    name="LaunchDate"
-                    required
-                    value="<?= htmlspecialchars($_POST["LaunchDate"] ?? "") ?>"
-                >
-
-            </div>
-
+            <!-- RESERVATION DEADLINE -->
 
             <div class="form-group">
 
-                <label>Launch Time *</label>
-
-                <input
-                    type="time"
-                    name="LaunchTime"
-                    required
-                    value="<?= htmlspecialchars($_POST["LaunchTime"] ?? "") ?>"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>Reservation Deadline *</label>
+                <label>
+                    Reservation Deadline
+                </label>
 
                 <input
                     type="datetime-local"
-                    name="Deadline"
+                    name="deadline"
+                    value="<?= htmlspecialchars(
+                        $_POST["deadline"] ?? ""
+                    ) ?>"
                     required
-                    value="<?= htmlspecialchars($_POST["Deadline"] ?? "") ?>"
                 >
 
             </div>
 
+
+            <!-- CAMPUS LOCATION -->
 
             <div class="form-group">
 
-                <label>Campus Location</label>
+                <label>
+                    Campus Location
+                </label>
 
                 <input
                     type="text"
-                    name="CampusLocation"
-                    value="<?= htmlspecialchars($_POST["CampusLocation"] ?? "") ?>"
+                    name="campusLocation"
+                    placeholder="Example: Cafeteria 6th floor pillar 04"
+                    value="<?= htmlspecialchars(
+                        $_POST["campusLocation"] ?? ""
+                    ) ?>"
+                    required
                 >
 
             </div>
 
 
-            <div class="buttons">
+            <!-- REQUIRED RESERVATIONS -->
+
+            <div class="form-group">
+
+                <label>
+                    Required Reservation Quantity
+                </label>
+
+                <input
+                    type="number"
+                    name="requiredReservations"
+                    min="1"
+                    placeholder="Example: 20"
+                    value="<?= htmlspecialchars(
+                        $_POST["requiredReservations"] ?? ""
+                    ) ?>"
+                    required
+                >
+
+            </div>
+
+
+            <div class="form-actions">
 
                 <button
                     type="submit"
-                    class="btn save"
+                    class="form-submit"
                 >
                     Create Product Launch
                 </button>
 
+
                 <a
                     href="index.php"
-                    class="btn cancel"
+                    class="form-cancel"
                 >
                     Cancel
                 </a>
 
             </div>
+
 
         </form>
 
@@ -393,6 +566,5 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 </div>
 
-</body>
 
-</html>
+<?php include "../../includes/footer.php"; ?>

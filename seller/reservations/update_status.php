@@ -90,37 +90,28 @@ try {
         $reservation["Status"];
 
 
-    /*
-    STATUS FLOW
-    */
+    /*STATUS FLOW*/
 
     if ($currentStatus === "Pending") {
-
         if (
             $newStatus !== "Accepted" &&
             $newStatus !== "Rejected"
         ) {
-
             throw new Exception(
                 "Invalid reservation status change."
             );
         }
-
     } elseif (
         $currentStatus === "Accepted"
     ) {
-
         if (
             $newStatus !== "Completed"
         ) {
-
             throw new Exception(
                 "Invalid reservation status change."
             );
         }
-
     } else {
-
         throw new Exception(
             "This reservation can no longer be changed."
         );
@@ -329,9 +320,7 @@ try {
     }
 
 
-    /*
-    UPDATE RESERVATION
-    */
+    /*UPDATE RESERVATION*/
 
     $stmt = $pdo->prepare("
         UPDATE reservation
@@ -347,11 +336,7 @@ try {
         $reservationID,
         $sellerID
     ]);
-
-
     $pdo->commit();
-
-
     header(
         "Location: index.php?success=" .
         urlencode(

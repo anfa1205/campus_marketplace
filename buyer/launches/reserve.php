@@ -133,19 +133,49 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 
             /*
-             * Check deadline.
-             */
+ * Check deadline.
+ */
 
-            if (
-                strtotime($lockedLaunch["Deadline"])
-                < time()
-            ) {
+if (
+    strtotime($lockedLaunch["Deadline"])
+    < time()
+) {
 
-                throw new Exception(
-                    "The confirmation deadline has passed."
-                );
+    throw new Exception(
+        "The confirmation deadline has passed."
+    );
 
-            }
+}
+
+
+/*
+ * Check reservation limit.
+ *
+ * The buyer cannot reserve if the launch
+ * has already reached its required reservation limit.
+ */
+
+$requiredReservations = (int) (
+    $lockedLaunch["RequiredReservations"]
+    ?? $lockedLaunch["Capacity"]
+    ?? 0
+);
+
+$currentReservation = (int) (
+    $lockedLaunch["CurrentReservation"]
+    ?? 0
+);
+
+if (
+    $requiredReservations > 0 &&
+    $currentReservation >= $requiredReservations
+) {
+
+    throw new Exception(
+        "This product launch has reached its reservation limit."
+    );
+
+}
 
 
             /*

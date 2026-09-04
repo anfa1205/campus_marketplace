@@ -3,11 +3,13 @@
 require_once "../../config/database.php";
 require_once "../../includes/seller_check.php";
 
-$sellerID = $_SESSION["user_id"];
+$sellerID = (int) $_SESSION["user_id"];
 
-$launchID = isset($_GET["id"])
-    ? (int)$_GET["id"]
+$launchID =
+    isset($_GET["id"])
+    ? (int) $_GET["id"]
     : 0;
+
 
 if ($launchID <= 0) {
 
@@ -17,7 +19,9 @@ if ($launchID <= 0) {
     );
 
     exit;
+
 }
+
 
 try {
 
@@ -25,7 +29,7 @@ try {
 
 
     /*
-     * Get and lock the product launch.
+     * GET AND LOCK LAUNCH
      */
 
     $stmt = $pdo->prepare("
@@ -54,10 +58,12 @@ try {
 
 
     /*
-     * Prevent launching twice.
+     * PREVENT DOUBLE LAUNCH
      */
 
-    if ($launch["Status"] !== "Upcoming") {
+    if (
+        $launch["Status"] !== "Upcoming"
+    ) {
 
         throw new Exception(
             "This product launch has already been launched."
@@ -67,12 +73,15 @@ try {
 
 
     /*
-     * Calculate the actual confirmed quantity
-     * from all buyers.
+     * GET ACTUAL RESERVATION TOTAL
      */
 
     $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(Quantity), 0) AS total
+        SELECT
+            COALESCE(
+                SUM(Quantity),
+                0
+            )
         FROM reserves
         WHERE launchID = ?
     ");
@@ -81,21 +90,25 @@ try {
         $launchID
     ]);
 
-    $result = $stmt->fetch();
+    $totalReserved =
+        (int) $stmt->fetchColumn();
 
-    $totalReserved = (int)$result["total"];
 
-    $required = (int)$launch["RequiredReservations"];
+    $required =
+        (int) $launch["RequiredReservations"];
 
 
     /*
-     * Target must be reached before launching.
+     * REQUIRED RESERVATION TARGET
+     * MUST BE REACHED
      */
 
-    if ($totalReserved < $required) {
+    if (
+        $totalReserved < $required
+    ) {
 
         throw new Exception(
-            "The required confirmation quantity has not been reached."
+            "The required reservation quantity has not been reached yet."
         );
 
     }
@@ -103,7 +116,7 @@ try {
 
     /*
      * STEP 1
-     * Create the new product.
+     * CREATE ACTUAL PRODUCT
      */
 
     $stmt = $pdo->prepare("
@@ -132,25 +145,31 @@ try {
         $sellerID
     ]);
 
-    $newProductID = $pdo->lastInsertId();
+
+    $newProductID =
+        (int) $pdo->lastInsertId();
 
 
     /*
      * STEP 2
-     * Automatically create Sales Announcement.
-     *
-     * Selling Date = Launch Date
-     * Selling Time = Launch Time
-     * Seller = same seller
-     * Status = Available
+     * CREATE SALES ANNOUNCEMENT
      */
 
-    $sellingDate = date(
-        "Y-m-d",
-        strtotime($launch["LaunchDate"])
-    );
+    $sellingDate =
+        date(
+            "Y-m-d",
+            strtotime(
+                $launch["LaunchDate"]
+            )
+        );
 
-    $sellingTime = $launch["LaunchTime"];
+
+    $sellingTime =
+        $launch["LaunchTime"];
+
+
+    $campusLocation =
+        $launch["CampusLocation"];
 
 
     $stmt = $pdo->prepare("
@@ -158,30 +177,31 @@ try {
         (
             SellingTime,
             SellingDate,
+            CampusLocation,
             Status,
             SellerId
         )
         VALUES
         (
-            ?, ?, 'Available', ?
+            ?, ?, ?, 'Available', ?
         )
     ");
 
     $stmt->execute([
         $sellingTime,
         $sellingDate,
+        $campusLocation,
         $sellerID
     ]);
 
-    $announcementID = $pdo->lastInsertId();
+
+    $announcementID =
+        (int) $pdo->lastInsertId();
 
 
     /*
      * STEP 3
-     * Connect the new Sales Announcement
-     * with the new Product.
-     *
-     * Quantity = total confirmed quantity.
+     * CONNECT PRODUCT TO SALES ANNOUNCEMENT
      */
 
     $stmt = $pdo->prepare("
@@ -206,15 +226,17 @@ try {
 
     /*
      * STEP 4
-     * Mark Product Launch as Launched.
+     * MARK PRODUCT LAUNCH AS LAUNCHED
      */
 
     $stmt = $pdo->prepare("
         UPDATE product_launch
+
         SET
             CurrentReservation = ?,
             Status = 'Launched',
             productID = ?
+
         WHERE LaunchID = ?
         AND sellerID = ?
     ");
@@ -228,7 +250,7 @@ try {
 
 
     /*
-     * Everything succeeded.
+     * EVERYTHING SUCCESSFUL
      */
 
     $pdo->commit();
@@ -237,7 +259,7 @@ try {
     header(
         "Location: index.php?success=" .
         urlencode(
-            "Product launched and Sales Announcement created successfully."
+            "Product launched successfully and added to Sales Announcements."
         )
     );
 
@@ -246,11 +268,10 @@ try {
 
 } catch (Exception $e) {
 
-    /*
-     * If anything fails, undo everything.
-     */
 
-    if ($pdo->inTransaction()) {
+    if (
+        $pdo->inTransaction()
+    ) {
 
         $pdo->rollBack();
 
@@ -259,10 +280,13 @@ try {
 
     header(
         "Location: index.php?error=" .
-        urlencode($e->getMessage())
+        urlencode(
+            $e->getMessage()
+        )
     );
 
     exit;
 
 }
+
 ?>

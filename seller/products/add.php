@@ -109,7 +109,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             INSERT PRODUCT
             =========================
         */
-
         $stmt = $pdo->prepare(
             "INSERT INTO PRODUCT
             (
@@ -124,21 +123,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             VALUES (?, ?, ?, ?, ?, ?, ?)"
         );
 
-
         $stmt->execute([
-
             $seller_id,
-
             $product_name,
-
             $category,
-
             $description,
-
             $price,
-
             $stock,
-
             $status
 
         ]);

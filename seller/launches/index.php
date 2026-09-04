@@ -3,7 +3,7 @@
 require_once "../../config/database.php";
 require_once "../../includes/seller_check.php";
 
-$sellerID = $_SESSION["user_id"];
+$sellerID = (int) $_SESSION["user_id"];
 
 $message = "";
 $error = "";
@@ -16,6 +16,11 @@ if (isset($_GET["error"])) {
     $error = $_GET["error"];
 }
 
+
+/*
+ * Get all launches created by this seller.
+ */
+
 $stmt = $pdo->prepare("
     SELECT *
     FROM product_launch
@@ -23,14 +28,18 @@ $stmt = $pdo->prepare("
     ORDER BY LaunchDate ASC
 ");
 
-$stmt->execute([$sellerID]);
+$stmt->execute([
+    $sellerID
+]);
 
-$launches = $stmt->fetchAll();
+$launches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
 <!DOCTYPE html>
+
 <html>
+
 <head>
 
     <title>Product Launch</title>
@@ -59,6 +68,7 @@ $launches = $stmt->fetchAll();
             justify-content: space-between;
             align-items: center;
             margin-bottom: 25px;
+            gap: 20px;
         }
 
         h1 {
@@ -165,6 +175,7 @@ $launches = $stmt->fetchAll();
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            align-items: center;
         }
 
         .btn {
@@ -210,19 +221,35 @@ $launches = $stmt->fetchAll();
             color: #777;
         }
 
+        @media(max-width:650px) {
+
+            .top {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+        }
+
     </style>
 
 </head>
+
 
 <body>
 
 <div class="container">
 
+
     <div class="top">
 
-        <h1>Product Launch</h1>
+        <h1>
+            Product Launch
+        </h1>
 
-        <a href="create.php" class="add-btn">
+        <a
+            href="create.php"
+            class="add-btn"
+        >
             + Create New Product
         </a>
 
@@ -247,7 +274,7 @@ $launches = $stmt->fetchAll();
     <?php endif; ?>
 
 
-    <?php if (count($launches) == 0): ?>
+    <?php if (empty($launches)): ?>
 
         <div class="empty">
             No Product Launches Yet
@@ -258,35 +285,57 @@ $launches = $stmt->fetchAll();
 
     <?php foreach ($launches as $launch): ?>
 
+
         <?php
 
-        $current = (int)$launch["CurrentReservation"];
-        $required = (int)$launch["RequiredReservations"];
+        $current =
+            (int) $launch["CurrentReservation"];
+
+        $required =
+            (int) $launch["RequiredReservations"];
+
 
         if ($required > 0) {
-            $percentage = ($current / $required) * 100;
+
+            $percentage =
+                ($current / $required) * 100;
+
         } else {
+
             $percentage = 0;
+
         }
+
 
         if ($percentage > 100) {
             $percentage = 100;
         }
 
-        $targetReached = $current >= $required;
+
+        $targetReached =
+            $current >= $required;
 
         ?>
 
+
         <div class="launch-card">
+
 
             <div class="launch-header">
 
                 <h2>
-                    <?= htmlspecialchars($launch["ProductName"]) ?>
+                    <?= htmlspecialchars(
+                        $launch["ProductName"]
+                    ) ?>
                 </h2>
 
+
                 <span class="status">
-                    <?= htmlspecialchars($launch["Status"]) ?>
+
+                    <?= htmlspecialchars(
+                        $launch["Status"]
+                    ) ?>
+
                 </span>
 
             </div>
@@ -294,55 +343,128 @@ $launches = $stmt->fetchAll();
 
             <div class="details">
 
-                <div>
-                    <strong>Category:</strong>
-                    <?= htmlspecialchars($launch["Category"]) ?>
-                </div>
 
                 <div>
-                    <strong>Price:</strong>
-                    ৳<?= number_format($launch["Price"], 2) ?>
+
+                    <strong>
+                        Category:
+                    </strong>
+
+                    <?= htmlspecialchars(
+                        $launch["Category"]
+                    ) ?>
+
                 </div>
 
-                <div>
-                    <strong>Description:</strong>
-                    <?= htmlspecialchars($launch["Description"]) ?>
-                </div>
 
                 <div>
-                    <strong>Launch Date:</strong>
-                    <?= date("d M Y", strtotime($launch["LaunchDate"])) ?>
+
+                    <strong>
+                        Price:
+                    </strong>
+
+                    ৳<?= number_format(
+                        (float)$launch["Price"],
+                        2
+                    ) ?>
+
                 </div>
 
-                <div>
-                    <strong>Launch Time:</strong>
-                    <?= date("h:i A", strtotime($launch["LaunchTime"])) ?>
-                </div>
 
                 <div>
-                    <strong>Reservation Deadline:</strong>
-                    <?= date("d M Y h:i A", strtotime($launch["Deadline"])) ?>
+
+                    <strong>
+                        Description:
+                    </strong>
+
+                    <?= htmlspecialchars(
+                        $launch["Description"]
+                    ) ?>
+
                 </div>
 
+
                 <div>
-                    <strong>Campus Location:</strong>
-                    <?= htmlspecialchars($launch["CampusLocation"]) ?>
+
+                    <strong>
+                        Launch Date:
+                    </strong>
+
+                    <?= date(
+                        "d M Y",
+                        strtotime(
+                            $launch["LaunchDate"]
+                        )
+                    ) ?>
+
                 </div>
+
+
+                <div>
+
+                    <strong>
+                        Launch Time:
+                    </strong>
+
+                    <?= date(
+                        "h:i A",
+                        strtotime(
+                            $launch["LaunchTime"]
+                        )
+                    ) ?>
+
+                </div>
+
+
+                <div>
+
+                    <strong>
+                        Reservation Deadline:
+                    </strong>
+
+                    <?= date(
+                        "d M Y h:i A",
+                        strtotime(
+                            $launch["Deadline"]
+                        )
+                    ) ?>
+
+                </div>
+
+
+                <div>
+
+                    <strong>
+                        Campus Location:
+                    </strong>
+
+                    <?= htmlspecialchars(
+                        $launch["CampusLocation"]
+                    ) ?>
+
+                </div>
+
 
             </div>
 
 
             <div class="progress-box">
 
+
                 <div class="progress-text">
 
-                    <span>Reservations</span>
+                    <span>
+                        Reservations
+                    </span>
 
                     <span>
-                        <?= $current ?> / <?= $required ?>
+                        <?= $current ?>
+                        /
+                        <?= $required ?>
                     </span>
 
                 </div>
+
 
                 <div class="progress">
 
@@ -353,15 +475,18 @@ $launches = $stmt->fetchAll();
 
                 </div>
 
+
             </div>
 
 
             <div class="actions">
 
+
                 <?php if ($launch["Status"] === "Upcoming"): ?>
 
+
                     <a
-                        href="edit.php?id=<?= $launch["LaunchID"] ?>"
+                        href="edit.php?id=<?= (int)$launch["LaunchID"] ?>"
                         class="btn edit"
                     >
                         Edit
@@ -369,7 +494,7 @@ $launches = $stmt->fetchAll();
 
 
                     <a
-                        href="delete.php?id=<?= $launch["LaunchID"] ?>"
+                        href="delete.php?id=<?= (int)$launch["LaunchID"] ?>"
                         class="btn delete"
                         onclick="return confirm('Delete this product launch?');"
                     >
@@ -380,7 +505,7 @@ $launches = $stmt->fetchAll();
                     <?php if ($targetReached): ?>
 
                         <a
-                            href="launch.php?id=<?= $launch["LaunchID"] ?>"
+                            href="launch.php?id=<?= (int)$launch["LaunchID"] ?>"
                             class="btn launch"
                             onclick="return confirm('Confirm and launch this product?');"
                         >
@@ -390,7 +515,11 @@ $launches = $stmt->fetchAll();
                     <?php else: ?>
 
                         <span class="waiting">
-                            Need <?= $required - $current ?> more units
+
+                            Need
+                            <?= $required - $current ?>
+                            more reservation(s)
+
                         </span>
 
                     <?php endif; ?>
@@ -398,19 +527,26 @@ $launches = $stmt->fetchAll();
 
                 <?php elseif ($launch["Status"] === "Launched"): ?>
 
+
                     <span class="launched">
                         Product Launched
                     </span>
 
+
                 <?php endif; ?>
+
 
             </div>
 
+
         </div>
 
+
     <?php endforeach; ?>
+
 
 </div>
 
 </body>
+
 </html>
