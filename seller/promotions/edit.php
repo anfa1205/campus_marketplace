@@ -1,16 +1,18 @@
+```php
 <?php
 
 require_once "../../config/database.php";
 require_once "../../includes/seller_check.php";
 
 $sellerID = (int) $_SESSION["user_id"];
-
 $promotionID = (int) ($_GET["id"] ?? 0);
 
 $error = "";
 
 
-/* Get existing offer */
+/* =========================================================
+   GET EXISTING OFFER
+========================================================= */
 
 $stmt = $pdo->prepare("
     SELECT *
@@ -26,14 +28,15 @@ $stmt->execute([
 
 $offer = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
 if (!$offer) {
     header("Location: index.php");
     exit;
 }
 
 
-/* Get seller products */
+/* =========================================================
+   GET SELLER PRODUCTS
+========================================================= */
 
 $stmt = $pdo->prepare("
     SELECT
@@ -44,8 +47,6 @@ $stmt = $pdo->prepare("
         Status
     FROM product
     WHERE SellerID = ?
-      AND Stock > 0
-      AND Status = 'Available'
     ORDER BY ProductName
 ");
 
@@ -54,7 +55,9 @@ $stmt->execute([$sellerID]);
 $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
-/* Get products currently attached to this offer */
+/* =========================================================
+   GET PRODUCTS CURRENTLY ATTACHED TO THIS OFFER
+========================================================= */
 
 $stmt = $pdo->prepare("
     SELECT productID
@@ -73,42 +76,50 @@ $selectedProducts = array_map(
 );
 
 
-/* Update offer */
+/* =========================================================
+   UPDATE OFFER
+========================================================= */
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $offerType = $_POST["offer_type"] ?? "";
+    $offerType = trim($_POST["offer_type"] ?? "");
 
-    $discountValue =
-        (float) ($_POST["discount_value"] ?? 0);
+    $discountValue = (float) (
+        $_POST["discount_value"] ?? 0
+    );
 
-    $buyQuantity =
-        (int) ($_POST["buy_quantity"] ?? 0);
+    $buyQuantity = (int) (
+        $_POST["buy_quantity"] ?? 0
+    );
 
-    $getQuantity =
-        (int) ($_POST["get_quantity"] ?? 0);
+    $getQuantity = (int) (
+        $_POST["get_quantity"] ?? 0
+    );
 
-    $startDate =
-        trim($_POST["start_date"] ?? "");
+    $startDate = trim(
+        $_POST["start_date"] ?? ""
+    );
 
-    $endDate =
-        trim($_POST["end_date"] ?? "");
+    $endDate = trim(
+        $_POST["end_date"] ?? ""
+    );
 
-    $selectedProducts =
-        $_POST["products"] ?? [];
+    $selectedProducts = $_POST["products"] ?? [];
 
+    if (!is_array($selectedProducts)) {
+        $selectedProducts = [];
+    }
 
-    $selectedProducts = array_map(
-        "intval",
-        $selectedProducts
+    $selectedProducts = array_values(
+        array_unique(
+            array_map("intval", $selectedProducts)
+        )
     );
 
 
-    /* Convert datetime-local to MySQL DATETIME */
-
-    $startTimestamp = strtotime($startDate);
-    $endTimestamp = strtotime($endDate);
-
+    /* =====================================================
+       VALIDATION
+    ===================================================== */
 
     if (
         !in_array(
@@ -120,205 +131,278 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $error = "Please select a valid offer type.";
 
-    } elseif (
-        !$startTimestamp ||
-        !$endTimestamp
-    ) {
+    } elseif ($startDate === "" || $endDate === "") {
 
-        $error = "Please enter valid start and end dates.";
-
-    } elseif (
-        $endTimestamp <= $startTimestamp
-    ) {
-
-        $error = "End date must be after start date.";
-
-    } elseif (
-        empty($selectedProducts)
-    ) {
-
-        $error = "Please select at least one product.";
-
-    } elseif (
-        $offerType === "Percentage" &&
-        ($discountValue <= 0 || $discountValue > 100)
-    ) {
-
-        $error = "Discount must be between 1% and 100%.";
-
-    } elseif (
-        $offerType === "BuyXGetY" &&
-        ($buyQuantity <= 0 || $getQuantity <= 0)
-    ) {
-
-        $error = "Buy and Get quantities must be greater than zero.";
+        $error = "Please enter both start and end dates.";
 
     } else {
 
-        $startDateDB =
-            date("Y-m-d H:i:s", $startTimestamp);
+        $startTimestamp = strtotime($startDate);
+        $endTimestamp = strtotime($endDate);
 
-        $endDateDB =
-            date("Y-m-d H:i:s", $endTimestamp);
+        if (
+            $startTimestamp === false ||
+            $endTimestamp === false
+        ) {
+
+            $error = "Please enter valid start and end dates.";
+
+        } elseif (
+            $endTimestamp <= $startTimestamp
+        ) {
+
+            $error = "End date must be after start date.";
+
+        } elseif (
+            empty($selectedProducts)
+        ) {
+
+            $error = "Please select at least one product.";
+
+        } elseif (
+            $offerType === "Percentage" &&
+            (
+                $discountValue <= 0 ||
+                $discountValue > 100
+            )
+        ) {
+
+            $error = "Discount must be between 1% and 100%.";
+
+        } elseif (
+            $offerType === "BuyXGetY" &&
+            (
+                $buyQuantity <= 0 ||
+                $getQuantity <= 0
+            )
+        ) {
+
+            $error = "Buy and Get quantities must be greater than zero.";
+
+        } else {
+
+            $startDateDB = date(
+                "Y-m-d H:i:s",
+                $startTimestamp
+            );
+
+            $endDateDB = date(
+                "Y-m-d H:i:s",
+                $endTimestamp
+            );
 
 
-        try {
+            try {
 
-            $pdo->beginTransaction();
+                $pdo->beginTransaction();
 
 
-            /* Make sure every selected product belongs to seller */
+                /* =========================================
+                   CHECK THAT OFFER STILL BELONGS TO SELLER
+                ========================================= */
 
-            foreach ($selectedProducts as $productID) {
-
-                $check = $pdo->prepare("
-                    SELECT ProductID
-                    FROM product
-                    WHERE ProductID = ?
-                      AND SellerID = ?
-                      AND Stock > 0
-                      AND Status = 'Available'
+                $checkOffer = $pdo->prepare("
+                    SELECT PromotionId
+                    FROM promotion
+                    WHERE PromotionId = ?
+                      AND SellerId = ?
                 ");
 
-                $check->execute([
-                    $productID,
+                $checkOffer->execute([
+                    $promotionID,
                     $sellerID
                 ]);
 
-                if (!$check->fetch()) {
+                if (!$checkOffer->fetch()) {
 
                     throw new Exception(
-                        "One or more selected products are invalid."
+                        "This offer could not be found."
                     );
-
                 }
-            }
 
 
-            /* Update promotion */
+                /* =========================================
+                   CHECK SELECTED PRODUCTS BELONG TO SELLER
+                ========================================= */
 
-            $stmt = $pdo->prepare("
-                UPDATE promotion
-                SET
-                    OfferType = ?,
-                    DiscountValue = ?,
-                    BuyQuantity = ?,
-                    GetQuantity = ?,
-                    StartDate = ?,
-                    EndDate = ?
-                WHERE PromotionId = ?
-                  AND SellerId = ?
-            ");
+                foreach ($selectedProducts as $productID) {
 
+                    if ($productID <= 0) {
 
-            /*
-             * IMPORTANT:
-             * Percentage offers use 0 instead of NULL
-             * because your database does not allow NULL.
-             */
+                        throw new Exception(
+                            "Invalid product selected."
+                        );
+                    }
 
-            $dbDiscount =
-                $offerType === "Percentage"
-                    ? $discountValue
-                    : 0;
+                    $checkProduct = $pdo->prepare("
+                        SELECT ProductID
+                        FROM product
+                        WHERE ProductID = ?
+                          AND SellerID = ?
+                    ");
 
-            $dbBuyQuantity =
-                $offerType === "BuyXGetY"
-                    ? $buyQuantity
-                    : 0;
+                    $checkProduct->execute([
+                        $productID,
+                        $sellerID
+                    ]);
 
-            $dbGetQuantity =
-                $offerType === "BuyXGetY"
-                    ? $getQuantity
-                    : 0;
+                    if (!$checkProduct->fetch()) {
+
+                        throw new Exception(
+                            "One or more selected products are invalid."
+                        );
+                    }
+                }
 
 
-            $stmt->execute([
-                $offerType,
-                $dbDiscount,
-                $dbBuyQuantity,
-                $dbGetQuantity,
-                $startDateDB,
-                $endDateDB,
-                $promotionID,
-                $sellerID
-            ]);
+                /* =========================================
+                   DATABASE VALUES
+
+                   Percentage:
+                       DiscountValue = actual discount
+                       BuyQuantity = 0
+                       GetQuantity = 0
+
+                   BuyXGetY:
+                       DiscountValue = 0
+                       BuyQuantity = actual buy
+                       GetQuantity = actual get
+                ========================================= */
+
+                if ($offerType === "Percentage") {
+
+                    $dbDiscount = $discountValue;
+                    $dbBuyQuantity = 0;
+                    $dbGetQuantity = 0;
+
+                } else {
+
+                    $dbDiscount = 0;
+                    $dbBuyQuantity = $buyQuantity;
+                    $dbGetQuantity = $getQuantity;
+                }
 
 
-            /* Remove old products */
+                /* =========================================
+                   UPDATE PROMOTION
+                ========================================= */
 
-            $stmt = $pdo->prepare("
-                DELETE FROM applies_to
-                WHERE promotionID = ?
-            ");
+                $updateOffer = $pdo->prepare("
+                    UPDATE promotion
+                    SET
+                        OfferType = ?,
+                        DiscountValue = ?,
+                        BuyQuantity = ?,
+                        GetQuantity = ?,
+                        StartDate = ?,
+                        EndDate = ?
+                    WHERE PromotionId = ?
+                      AND SellerId = ?
+                ");
 
-            $stmt->execute([
-                $promotionID
-            ]);
-
-
-            /* Add selected products again */
-
-            $stmt = $pdo->prepare("
-                INSERT INTO applies_to
-                (
-                    promotionID,
-                    productID
-                )
-                VALUES (?, ?)
-            ");
-
-
-            foreach ($selectedProducts as $productID) {
-
-                $stmt->execute([
+                $updateOffer->execute([
+                    $offerType,
+                    $dbDiscount,
+                    $dbBuyQuantity,
+                    $dbGetQuantity,
+                    $startDateDB,
+                    $endDateDB,
                     $promotionID,
-                    $productID
+                    $sellerID
                 ]);
 
+
+                /* =========================================
+                   DELETE OLD PRODUCT CONNECTIONS
+                ========================================= */
+
+                $deleteProducts = $pdo->prepare("
+                    DELETE FROM applies_to
+                    WHERE promotionID = ?
+                ");
+
+                $deleteProducts->execute([
+                    $promotionID
+                ]);
+
+
+                /* =========================================
+                   INSERT UPDATED PRODUCT CONNECTIONS
+                ========================================= */
+
+                $insertProduct = $pdo->prepare("
+                    INSERT INTO applies_to
+                    (
+                        promotionID,
+                        productID
+                    )
+                    VALUES (?, ?)
+                ");
+
+                foreach ($selectedProducts as $productID) {
+
+                    $insertProduct->execute([
+                        $promotionID,
+                        $productID
+                    ]);
+                }
+
+
+                /* =========================================
+                   FINISH TRANSACTION
+                ========================================= */
+
+                $pdo->commit();
+
+
+                /* =========================================
+                   REDIRECT AFTER SUCCESS
+                ========================================= */
+
+                header(
+                    "Location: index.php?success=" .
+                    urlencode("Offer updated successfully.")
+                );
+
+                exit;
+
+
+            } catch (Throwable $e) {
+
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+
+                $error = "Update failed: " . $e->getMessage();
             }
-
-
-            $pdo->commit();
-
-
-            header(
-                "Location: index.php?success=" .
-                urlencode("Offer updated successfully.")
-            );
-
-            exit;
-
-
-        } catch (Exception $e) {
-
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-
-            $error = $e->getMessage();
         }
     }
 }
 
 
-/* Values shown in form */
+/* =========================================================
+   VALUES SHOWN IN FORM
+========================================================= */
 
 $currentOfferType =
     $_POST["offer_type"]
     ?? $offer["OfferType"];
 
+
 $currentDiscount =
     $_POST["discount_value"]
-    ?? $offer["DiscountValue"];
+    ?? ($offer["DiscountValue"] ?? 0);
+
 
 $currentBuy =
     $_POST["buy_quantity"]
     ?? ($offer["BuyQuantity"] ?? 0);
 
+
 $currentGet =
     $_POST["get_quantity"]
     ?? ($offer["GetQuantity"] ?? 0);
+
 
 $currentStart =
     $_POST["start_date"]
@@ -326,6 +410,7 @@ $currentStart =
         "Y-m-d\TH:i",
         strtotime($offer["StartDate"])
     );
+
 
 $currentEnd =
     $_POST["end_date"]
@@ -335,12 +420,36 @@ $currentEnd =
     );
 
 
+/*
+ * If validation failed after POST,
+ * preserve the selected products from the form.
+ */
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+
+    $selectedProducts = $_POST["products"] ?? [];
+
+    if (!is_array($selectedProducts)) {
+        $selectedProducts = [];
+    }
+
+    $selectedProducts = array_values(
+        array_unique(
+            array_map("intval", $selectedProducts)
+        )
+    );
+}
+
+
 include "../../includes/header.php";
 
 ?>
 
 
 <style>
+
+/* =========================================================
+   OFFER UPDATE PAGE
+========================================================= */
 
 .offer-form-page {
     max-width: 850px;
@@ -444,18 +553,38 @@ include "../../includes/header.php";
     border-radius: 9px;
     cursor: pointer;
     color: #4f3a60;
+    transition: 0.2s ease;
 }
 
 .offer-product:hover {
     background: #f3ebf9;
+    border-color: #cbb6dc;
 }
 
 .offer-product input {
     width: auto;
+    cursor: pointer;
+}
+
+.offer-product span {
+    flex: 1;
+}
+
+.offer-product strong {
+    color: #50336b;
+}
+
+.offer-product small {
+    color: #777;
 }
 
 .form-error {
     margin-bottom: 20px;
+    padding: 12px 15px;
+    border-radius: 9px;
+    background: #fff0f0;
+    border: 1px solid #efcaca;
+    color: #a33b3b;
 }
 
 .offer-form-buttons {
@@ -467,6 +596,10 @@ include "../../includes/header.php";
 .offer-form-buttons .btn {
     text-decoration: none;
     border: none;
+    cursor: pointer;
+}
+
+.offer-form-buttons button[type="submit"] {
     cursor: pointer;
 }
 
@@ -525,10 +658,25 @@ include "../../includes/header.php";
         <?php endif; ?>
 
 
-        <form method="POST">
+        <!-- =================================================
+             UPDATE FORM
+        ================================================== -->
+
+        <form
+            method="POST"
+            action="edit.php?id=<?= (int) $promotionID ?>"
+        >
+
+            <input
+                type="hidden"
+                name="update_offer"
+                value="1"
+            >
 
 
-            <!-- Offer Type -->
+            <!-- =================================================
+                 OFFER TYPE
+            ================================================== -->
 
             <div class="offer-form-group">
 
@@ -565,7 +713,9 @@ include "../../includes/header.php";
             </div>
 
 
-            <!-- Percentage -->
+            <!-- =================================================
+                 PERCENTAGE DISCOUNT
+            ================================================== -->
 
             <div
                 id="percentage_box"
@@ -589,7 +739,9 @@ include "../../includes/header.php";
                         min="1"
                         max="100"
                         step="0.01"
-                        value="<?= htmlspecialchars($currentDiscount) ?>"
+                        value="<?= htmlspecialchars(
+                            (string) $currentDiscount
+                        ) ?>"
                     >
 
                 </div>
@@ -597,7 +749,9 @@ include "../../includes/header.php";
             </div>
 
 
-            <!-- Buy X Get Y -->
+            <!-- =================================================
+                 BUY X GET Y
+            ================================================== -->
 
             <div
                 id="buy_get_box"
@@ -621,7 +775,9 @@ include "../../includes/header.php";
                             id="buy_quantity"
                             name="buy_quantity"
                             min="1"
-                            value="<?= htmlspecialchars($currentBuy) ?>"
+                            value="<?= htmlspecialchars(
+                                (string) $currentBuy
+                            ) ?>"
                         >
 
                     </div>
@@ -638,7 +794,9 @@ include "../../includes/header.php";
                             id="get_quantity"
                             name="get_quantity"
                             min="1"
-                            value="<?= htmlspecialchars($currentGet) ?>"
+                            value="<?= htmlspecialchars(
+                                (string) $currentGet
+                            ) ?>"
                         >
 
                     </div>
@@ -648,7 +806,9 @@ include "../../includes/header.php";
             </div>
 
 
-            <!-- Dates -->
+            <!-- =================================================
+                 DATES
+            ================================================== -->
 
             <div class="offer-two-columns">
 
@@ -662,7 +822,9 @@ include "../../includes/header.php";
                         type="datetime-local"
                         id="start_date"
                         name="start_date"
-                        value="<?= htmlspecialchars($currentStart) ?>"
+                        value="<?= htmlspecialchars(
+                            $currentStart
+                        ) ?>"
                         required
                     >
 
@@ -679,7 +841,9 @@ include "../../includes/header.php";
                         type="datetime-local"
                         id="end_date"
                         name="end_date"
-                        value="<?= htmlspecialchars($currentEnd) ?>"
+                        value="<?= htmlspecialchars(
+                            $currentEnd
+                        ) ?>"
                         required
                     >
 
@@ -688,7 +852,9 @@ include "../../includes/header.php";
             </div>
 
 
-            <!-- Products -->
+            <!-- =================================================
+                 PRODUCTS
+            ================================================== -->
 
             <div class="offer-form-group">
 
@@ -698,61 +864,78 @@ include "../../includes/header.php";
 
                 <div class="offer-products">
 
-                    <?php foreach ($products as $product): ?>
+                    <?php if (empty($products)): ?>
 
-                        <label class="offer-product">
+                        <p>
+                            No products found.
+                        </p>
 
-                            <input
-                                type="checkbox"
-                                name="products[]"
-                                value="<?= (int) $product["ProductID"] ?>"
-                                <?= in_array(
-                                    (int) $product["ProductID"],
-                                    $selectedProducts,
-                                    true
-                                )
-                                    ? "checked"
-                                    : "" ?>
-                            >
+                    <?php else: ?>
 
-                            <span>
+                        <?php foreach ($products as $product): ?>
 
-                                <strong>
-                                    <?= htmlspecialchars(
-                                        $product["ProductName"]
-                                    ) ?>
-                                </strong>
+                            <label class="offer-product">
 
-                                <br>
+                                <input
+                                    type="checkbox"
+                                    name="products[]"
+                                    value="<?= (int) $product["ProductID"] ?>"
+                                    <?= in_array(
+                                        (int) $product["ProductID"],
+                                        $selectedProducts,
+                                        true
+                                    )
+                                        ? "checked"
+                                        : "" ?>
+                                >
 
-                                <small>
-                                    ৳<?= number_format(
-                                        (float) $product["Price"],
-                                        2
-                                    ) ?>
-                                    —
-                                    Stock:
-                                    <?= (int) $product["Stock"] ?>
-                                </small>
+                                <span>
 
-                            </span>
+                                    <strong>
+                                        <?= htmlspecialchars(
+                                            $product["ProductName"]
+                                        ) ?>
+                                    </strong>
 
-                        </label>
+                                    <br>
 
-                    <?php endforeach; ?>
+                                    <small>
+                                        ৳<?= number_format(
+                                            (float) $product["Price"],
+                                            2
+                                        ) ?>
+
+                                        —
+
+                                        Stock:
+                                        <?= (int) $product["Stock"] ?>
+
+                                    </small>
+
+                                </span>
+
+                            </label>
+
+                        <?php endforeach; ?>
+
+                    <?php endif; ?>
 
                 </div>
 
             </div>
 
 
-            <!-- Buttons -->
+            <!-- =================================================
+                 BUTTONS
+            ================================================== -->
 
             <div class="offer-form-buttons">
 
                 <button
                     type="submit"
                     class="btn"
+                    name="submit_update"
+                    value="1"
                 >
                     Update Offer
                 </button>
@@ -775,6 +958,10 @@ include "../../includes/header.php";
 
 
 <script>
+
+/* =========================================================
+   OFFER TYPE FIELD CONTROL
+========================================================= */
 
 const offerType =
     document.getElementById("offer_type");
@@ -803,6 +990,21 @@ function updateOfferFields() {
 
         buyGetBox.style.display = "none";
 
+        /*
+         * IMPORTANT:
+         * Disable Buy/Get fields completely.
+         *
+         * This prevents browser HTML validation from
+         * blocking the form because their value is 0
+         * while min="1".
+         */
+
+        discountInput.disabled = false;
+
+        buyInput.disabled = true;
+
+        getInput.disabled = true;
+
         discountInput.required = true;
 
         buyInput.required = false;
@@ -815,15 +1017,27 @@ function updateOfferFields() {
 
         buyGetBox.style.display = "block";
 
+        /*
+         * IMPORTANT:
+         * Disable percentage field completely.
+         */
+
+        discountInput.disabled = true;
+
+        buyInput.disabled = false;
+
+        getInput.disabled = false;
+
         discountInput.required = false;
 
         buyInput.required = true;
 
         getInput.required = true;
-
     }
 }
 
+
+/* Change fields when offer type changes */
 
 offerType.addEventListener(
     "change",
@@ -831,9 +1045,43 @@ offerType.addEventListener(
 );
 
 
+/* Set correct fields when page loads */
+
 updateOfferFields();
+
+
+/* =========================================================
+   PREVENT DOUBLE SUBMISSION
+========================================================= */
+
+const offerForm =
+    document.querySelector("form");
+
+if (offerForm) {
+
+    offerForm.addEventListener(
+        "submit",
+        function () {
+
+            const submitButton =
+                offerForm.querySelector(
+                    'button[type="submit"]'
+                );
+
+            if (submitButton) {
+
+                submitButton.disabled = true;
+
+                submitButton.innerText =
+                    "Updating...";
+            }
+
+        }
+    );
+}
 
 </script>
 
 
 <?php include "../../includes/footer.php"; ?>
+```

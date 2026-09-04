@@ -1,3 +1,4 @@
+```php
 <?php
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -48,7 +49,11 @@ if (session_status() === PHP_SESSION_NONE) {
 
             <!-- Home -->
             <a
-                href="/campus_marketplace/index.php"
+                href="<?php
+                    echo ($_SESSION["role"] ?? "") === "buyer"
+                        ? "/campus_marketplace/buyer/dashboard.php"
+                        : "/campus_marketplace/index.php";
+                ?>"
             >
                 Home
             </a>
@@ -128,9 +133,9 @@ if (session_status() === PHP_SESSION_NONE) {
 
 
                     <a
-                        href="/campus_marketplace/buyer/profile/index.php"
+                        href="/campus_marketplace/buyer/feedback/index.php"
                     >
-                        My Profile
+                        Feedback
                     </a>
 
                 <?php endif; ?>
@@ -175,3 +180,4 @@ if (session_status() === PHP_SESSION_NONE) {
 
 
 <main class="container">
+```

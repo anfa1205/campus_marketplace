@@ -31,9 +31,14 @@ $stmt = $pdo->prepare("
     INNER JOIN seller s
         ON pl.sellerID = s.sellerID
     WHERE pl.Status = 'Upcoming'
+      AND EXISTS (
+          SELECT 1
+          FROM PRODUCT p
+          WHERE p.ProductID = pl.productID
+          AND p.SellerID = pl.sellerID
+      )
     ORDER BY pl.LaunchDate ASC
 ");
-
 $stmt->execute();
 
 $launches = $stmt->fetchAll();

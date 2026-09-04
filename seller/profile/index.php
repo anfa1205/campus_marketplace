@@ -269,26 +269,29 @@ $completedReservations =
     (int) $stmt->fetchColumn();
 
 
+
 /* =========================================================
    LOW STOCK PRODUCTS
    ========================================================= */
 
-$stmt = $pdo->prepare("
-    SELECT COUNT(*)
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
 
-    FROM product
+        FROM product
 
-    WHERE SellerID = ?
-      AND Stock > 0
-      AND Stock <= 3
-");
+        WHERE SellerID = ?
+        AND Stock >= 0
+        AND Stock <= 3
+    ");
 
-$stmt->execute([
-    $sellerID
-]);
+    $stmt->execute([
+        $sellerID
+    ]);
 
-$lowStockProducts =
-    (int) $stmt->fetchColumn();
+    $lowStockProducts =
+        (int) $stmt->fetchColumn();
+
+
 
 
 /* =========================================================
